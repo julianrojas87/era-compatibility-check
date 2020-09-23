@@ -1,0 +1,63 @@
+{
+  "name": "era-ui",
+  "version": "1.0.0",
+  "description": "ERA's routable tiles UI ",
+  "scripts": {
+    "start": "webpack-dev-server --open --mode development",
+    "build": "webpack --mode production"
+  },
+  "author": "Julian Rojas",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.ilabt.imec.be/era/era-ui.git"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.10.3",
+    "@babel/plugin-proposal-class-properties": "^7.10.1",
+    "@babel/plugin-transform-runtime": "^7.10.4",
+    "@babel/preset-env": "^7.10.3",
+    "@babel/preset-react": "^7.10.1",
+    "babel-loader": "^8.1.0",
+    "css-loader": "^3.6.0",
+    "file-loader": "^6.1.0",
+    "html-loader": "^1.1.0",
+    "html-webpack-plugin": "^4.3.0",
+    "style-loader": "^1.2.1",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0",
+    "worker-loader": "^2.0.0"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.10.4",
+    "@graphy/memory.dataset.fast": "^4.2.1",
+    "@rdfjs/data-model": "^1.1.2",
+    "@turf/distance": "^6.0.1",
+    "@turf/helpers": "^6.1.4",
+    "jsonld-streaming-parser": "^2.0.2",
+    "mapbox-gl": "^1.11.0",
+    "n3": "^1.5.0",
+    "rdf-string": "^1.4.2",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-mapbox-gl": "^4.8.6",
+    "rsuite": "^4.8.0",
+    "styled-components": "^5.1.1",
+    "tinyqueue": "^2.0.3",
+    "url-loader": "^4.1.0",
+    "wellknown": "^0.5.0"
+  }
+}
