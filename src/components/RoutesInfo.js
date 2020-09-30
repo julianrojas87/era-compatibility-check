@@ -54,6 +54,8 @@ export class RoutesInfo extends Component {
         })
 
         if (l) {
+            console.log(l);
+            if(Array.isArray(l[s][p])) return l[s][p][0];
             return l[s][p];
         } else {
             return (<span style={{ color: 'red' }}>unknown term in KG</span>)
