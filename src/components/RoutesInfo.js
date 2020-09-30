@@ -84,7 +84,7 @@ export class RoutesInfo extends Component {
             }
             return res;
         } else {
-            return (<span style={{ color: 'red' }}>no data</span>)
+            return (<span style={{ color: 'orange' }}>no data</span>)
         }
     }
 
@@ -99,7 +99,7 @@ export class RoutesInfo extends Component {
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid black' }}>
-                                <th style={{ borderLeft: '1px solid black' }}>Property</th>
+                                <th style={{ borderLeft: '1px solid black' }}>Property(ies)</th>
                                 <th style={{ borderLeft: '1px solid black' }}>Compatible</th>
                                 <th style={{ borderLeft: '1px solid black' }}>Track</th>
                                 <th style={{ borderLeft: '1px solid black' }}>Vehicle</th>
@@ -107,10 +107,11 @@ export class RoutesInfo extends Component {
                         </thead>
                         <tbody>
                             {Object.keys(reps).map((rep, i) => {
+                                const unknown = (!reps[rep].values.track || !reps[rep].values.vehicle);
                                 return (
                                     <tr key={`rep-${i}`} style={{ borderBottom: '1px solid black' }}>
                                         <td style={{ borderLeft: '1px solid black', textAling: 'center' }}><a href={`${FACETED_BASE_URI}${encodeURIComponent(rep)}`} target={'_blank'}>{this.getLabel(rep, RDFS.label)}</a></td>
-                                        <td style={cellStyle}>{reps[rep].compatible ? (<span style={{ color: 'green' }}>YES</span>) : (<span style={{ color: 'red' }}>NO</span>)}</td>
+                                        <td style={cellStyle}>{unknown ? (<span style={{ color: 'orange' }}>UNKOWN</span>) : (reps[rep].compatible ? (<span style={{ color: 'green' }}>YES</span>) : (<span style={{ color: 'red' }}>NO</span>))}</td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.track)}</td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.vehicle)}</td>
                                     </tr>
