@@ -411,7 +411,7 @@ class MainLayout extends Component {
 
             this.pathFinder.on('done', () => { this.setState({ showTileFrames: false, calculatingRoutes: false }) });
 
-            this.setLoaderMessage('Caluculating routes...');
+            this.setLoaderMessage('Calculating routes...');
             if (!(await this.pathFinder.yen(this.from, this.to, this.state.maxRoutes))) {
                 if (!this.pathFinder.die) {
                     Alert.warning('There are no possible routes between these two locations', 10000);
