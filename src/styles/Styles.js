@@ -146,7 +146,8 @@ export const panelStyle = color => {
 };
 
 export const cellStyle = {
-    borderLeft: '1px solid black', 
+    borderLeft: '1px solid black',
+    borderRight: '1px solid black', 
     textAlign: 'center'
 }
 

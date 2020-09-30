@@ -35,6 +35,8 @@ export const ERA = {
     VehicleType: 'http://era.europa.eu/ns#VehicleType',
     trainDetectionSystem: 'http://era.europa.eu/ns#trainDetectionSystem',
     gaugingProfile: 'http://era.europa.eu/ns#gaugingProfile',
+    axleBearingConditionMonitoring: 'http://era.europa.eu/ns#axleBearingConditionMonitoring',
+    hasHotAxleBoxDetector: 'http://era.europa.eu/ns#hasHotAxleBoxDetector',
     wheelSetGauge: 'http://era.europa.eu/ns#wheelSetGauge',
     minimumWheelDiameter: 'http://era.europa.eu/ns#minimumWheelDiameter',
     minimumHorizontalRadius: 'http://era.europa.eu/ns#minimumHorizontalRadius'

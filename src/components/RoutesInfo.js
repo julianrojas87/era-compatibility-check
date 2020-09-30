@@ -69,7 +69,7 @@ export class RoutesInfo extends Component {
                     if (Utils.isValidHttpUrl(v)) {
                         res.push(
                             <span key={v} style={{ float: 'left', clear: 'left' }}>
-                                <a href={`${FACETED_BASE_URI}${encodeURIComponent(v)}`} target={'_blank'}>{this.getLabel(v, SKOS.prefLabel)}</a>
+                                - <a href={`${FACETED_BASE_URI}${encodeURIComponent(v)}`} target={'_blank'}>{this.getLabel(v, SKOS.prefLabel)}</a>
                             </span>);
                     } else {
                         res.push(<span key={v}>{v}</span>);
@@ -94,15 +94,15 @@ export class RoutesInfo extends Component {
         } else {
             return (
                 <div>
-                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span><br/>
+                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span><br />
                     <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, RDFS.label)}</a></span>
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid black' }}>
-                                <th style={{ borderLeft: '1px solid black' }}>Property(ies)</th>
-                                <th style={{ borderLeft: '1px solid black' }}>Compatible</th>
-                                <th style={{ borderLeft: '1px solid black' }}>Track</th>
-                                <th style={{ borderLeft: '1px solid black' }}>Vehicle</th>
+                            <tr style={{ borderBottom: '1px solid black', borderTop: '1px solid black' }}>
+                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Property(ies)</th>
+                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Compatible</th>
+                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Track</th>
+                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Vehicle</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -110,8 +110,18 @@ export class RoutesInfo extends Component {
                                 const unknown = (!reps[rep].values.track || !reps[rep].values.vehicle);
                                 return (
                                     <tr key={`rep-${i}`} style={{ borderBottom: '1px solid black' }}>
-                                        <td style={{ borderLeft: '1px solid black', textAling: 'center' }}><a href={`${FACETED_BASE_URI}${encodeURIComponent(rep)}`} target={'_blank'}>{this.getLabel(rep, RDFS.label)}</a></td>
-                                        <td style={cellStyle}>{unknown ? (<span style={{ color: 'orange' }}>UNKOWN</span>) : (reps[rep].compatible ? (<span style={{ color: 'green' }}>YES</span>) : (<span style={{ color: 'red' }}>NO</span>))}</td>
+                                        <td style={{ borderLeft: '1px solid black', borderRight: '1px solid black', textAling: 'center' }}>
+                                            {reps[rep].predicates.map((p, i) => {
+                                                return (
+                                                    <span key={i} style={{ float: 'left', clear: 'left' }}>
+                                                        - <a href={`${FACETED_BASE_URI}${encodeURIComponent(p)}`} target={'_blank'}>{this.getLabel(p, RDFS.label)}</a>
+                                                    </span>
+                                                );
+                                            })}
+                                        </td>
+                                        <td style={cellStyle}>
+                                            {unknown ? (<span style={{ color: 'orange' }}>UNKNOWN</span>) : (reps[rep].compatible ? (<span style={{ color: 'green' }}>YES</span>) : (<span style={{ color: 'red' }}>NO</span>))}
+                                        </td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.track)}</td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.vehicle)}</td>
                                     </tr>

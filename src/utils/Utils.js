@@ -21,15 +21,15 @@ function tile2lat(y, z) {
 
 function isValidHttpUrl(string) {
     let url;
-  
+
     try {
-      url = new URL(string);
+        url = new URL(string);
     } catch (_) {
-      return false;  
+        return false;
     }
-  
+
     return url.protocol === "http:" || url.protocol === "https:";
-  }
+}
 
 function getTileFrame(coords, z, asXY) {
     let tile = null;
@@ -302,6 +302,7 @@ function checkCompatibility(t, vehicle, store) {
     // Check Gauging
     const gauging = compareEqualValues(track[ERA.gaugingProfile], vehicle[ERA.gaugingProfile]);
     report[ERA.gaugingProfile] = {
+        predicates: [ERA.gaugingProfile],
         compatible: gauging && gauging.length > 0,
         values: {
             track: track[ERA.gaugingProfile],
@@ -312,6 +313,7 @@ function checkCompatibility(t, vehicle, store) {
     // Check Train detection system
     const tds = compareEqualValues(track[ERA.trainDetectionSystem], vehicle[ERA.trainDetectionSystem]);
     report[ERA.trainDetectionSystem] = {
+        predicates: [ERA.trainDetectionSystem],
         compatible: tds && tds.length > 0,
         values: {
             track: track[ERA.trainDetectionSystem],
@@ -319,9 +321,21 @@ function checkCompatibility(t, vehicle, store) {
         }
     }
 
-    // Wheelset gauge
+    // Check Hot axle box detection
+    const habd = track[ERA.hasHotAxleBoxDetector] && vehicle[ERA.axleBearingConditionMonitoring];
+    report[ERA.hasHotAxleBoxDetector] = {
+        predicates: [ERA.hasHotAxleBoxDetector, ERA.axleBearingConditionMonitoring],
+        compatible: habd,
+        values: {
+            track: track[ERA.hasHotAxleBoxDetector],
+            vehicle: vehicle[ERA.axleBearingConditionMonitoring]
+        }
+    }
+
+    // Check Wheelset gauge
     const wsg = compareEqualValues(track[ERA.wheelSetGauge], vehicle[ERA.wheelSetGauge]);
     report[ERA.wheelSetGauge] = {
+        predicates: [ERA.wheelSetGauge],
         compatible: wsg && wsg.length > 0,
         values: {
             track: track[ERA.wheelSetGauge],
@@ -329,9 +343,10 @@ function checkCompatibility(t, vehicle, store) {
         }
     }
 
-    // Minimum wheel diameter
+    // Check Minimum wheel diameter
     const mwd = parseInt(vehicle[ERA.minimumWheelDiameter]) >= parseInt(track[ERA.minimumWheelDiameter]);
     report[ERA.minimumWheelDiameter] = {
+        predicates: [ERA.minimumWheelDiameter],
         compatible: mwd,
         values: {
             track: track[ERA.minimumWheelDiameter],
@@ -339,9 +354,10 @@ function checkCompatibility(t, vehicle, store) {
         }
     }
 
-    // Minimum horizontal radius
+    // Check Minimum horizontal radius
     const mhr = parseInt(track[ERA.minimumHorizontalRadius]) >= parseInt(vehicle[ERA.minimumHorizontalRadius]);
     report[ERA.minimumHorizontalRadius] = {
+        predicates: [ERA.minimumHorizontalRadius],
         compatible: mhr,
         values: {
             track: track[ERA.minimumHorizontalRadius],
