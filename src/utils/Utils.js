@@ -421,7 +421,7 @@ function checkCompatibility(t, vehicle, store) {
     }
 
     // Check min contact wire height
-    const mincwh = parseFloat(vehicle[ERA.minimumContactWireHeight]) >= parseFloat(track[ERA.minimumContactWireHeight]);
+    const mincwh = parseFloat(vehicle[ERA.minimumContactWireHeight]) <= parseFloat(track[ERA.minimumContactWireHeight]);
     report[ERA.minimumContactWireHeight] = {
         predicates: [ERA.minimumContactWireHeight],
         compatible: mincwh,
@@ -432,7 +432,7 @@ function checkCompatibility(t, vehicle, store) {
     }
 
     // Check max contact wire height
-    const maxcwh = parseFloat(vehicle[ERA.maximumContactWireHeight]) <= parseFloat(track[ERA.maximumContactWireHeight]);
+    const maxcwh = parseFloat(vehicle[ERA.maximumContactWireHeight]) >= parseFloat(track[ERA.maximumContactWireHeight]);
     report[ERA.maximumContactWireHeight] = {
         predicates: [ERA.maximumContactWireHeight],
         compatible: maxcwh,
