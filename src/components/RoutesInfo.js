@@ -100,7 +100,7 @@ export class RoutesInfo extends Component {
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid black', borderTop: '1px solid black' }}>
-                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Property(ies)</th>
+                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Properties</th>
                                 <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Compatible</th>
                                 <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Track</th>
                                 <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Vehicle</th>
