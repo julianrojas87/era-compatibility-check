@@ -147,6 +147,7 @@ export class PathFinder extends EventEmitter {
                     }
 
                     let nextNode = NG.nodes.get(next.from);
+                    // console.log('NEXT node: ', nextNode);
                     // If undefined it means it was deliberately removed to find alternative paths, so skip it
                     if (!nextNode) continue;
 
@@ -212,7 +213,7 @@ export class PathFinder extends EventEmitter {
     hasReverseLinksOnly(edges, here, NG) {
         for(const [i, e] of edges.entries()) {
             const edge = NG.edges.get(e);
-            if(edge.to !== here) {
+            if(edge.to !== here && edge.from !== here) {
                 return false;
             }
         }
