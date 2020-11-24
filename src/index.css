@@ -29,6 +29,12 @@ code {
     border-left-style: dashed;
 }
 
+.rs-steps-item-status-process .rs-steps-item-icon-wrapper:not(.rs-steps-item-custom-icon) {
+    border-color: #004494;
+    background: #004494;
+    color: #fff;
+}
+
 .rs-loader-wrapper {
     position: relative;
     left: 40%;

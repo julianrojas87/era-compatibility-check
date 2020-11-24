@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import loadingGifPath from '../img/loading.gif';
+import eraLogoPath from '../img/era-logo.png';
 import ReactMapboxGl, { Popup, ZoomControl } from "react-mapbox-gl";
 import { parse as wktParse } from 'wellknown';
 import GraphStore from '@graphy/memory.dataset.fast';
@@ -29,6 +30,8 @@ import {
     Loader
 } from "rsuite";
 import {
+    ERALogo,
+    eraLogoWrapper,
     input,
     inputGroup,
     selectStyle,
@@ -510,6 +513,7 @@ class MainLayout extends Component {
                     <Sidebar style={sideBar}>
                         <div style={stickyMenu}>
                             <Sidenav.Header>
+                                <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
                                 <div style={sidebarHeader}>
                                     <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
                                     <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
