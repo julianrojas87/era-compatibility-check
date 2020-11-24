@@ -34,6 +34,7 @@ import {
     selectStyle,
     sideBar,
     sidebarHeader,
+    stickyMenu,
     mapStyle,
     StyledPopup,
     LoadingGIF,
@@ -507,45 +508,47 @@ class MainLayout extends Component {
             <div className="show-fake-browser sidebar-page">
                 <Container>
                     <Sidebar style={sideBar}>
-                        <Sidenav.Header>
-                            <div style={sidebarHeader}>
-                                <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
-                                <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
-                            </div>
-                        </Sidenav.Header>
+                        <div style={stickyMenu}>
+                            <Sidenav.Header>
+                                <div style={sidebarHeader}>
+                                    <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
+                                    <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
+                                </div>
+                            </Sidenav.Header>
 
-                        <InputGroup inside style={inputGroup}>
-                            <InputGroup.Addon>FROM:</InputGroup.Addon>
-                            <Input style={input} disabled value={from}></Input>
-                            <InputGroup.Button onClick={() => this.clearRoutes('from')}>
-                                <Icon icon="times-circle" />
-                            </InputGroup.Button>
-                        </InputGroup>
+                            <InputGroup inside style={inputGroup}>
+                                <InputGroup.Addon>FROM:</InputGroup.Addon>
+                                <Input style={input} disabled value={from}></Input>
+                                <InputGroup.Button onClick={() => this.clearRoutes('from')}>
+                                    <Icon icon="times-circle" />
+                                </InputGroup.Button>
+                            </InputGroup>
 
-                        <InputGroup inside style={inputGroup}>
-                            <InputGroup.Addon>TO:</InputGroup.Addon>
-                            <Input style={input} disabled value={to}></Input>
-                            <InputGroup.Button onClick={() => this.clearRoutes('to')}>
-                                <Icon icon="times-circle" />
-                            </InputGroup.Button>
-                        </InputGroup>
+                            <InputGroup inside style={inputGroup}>
+                                <InputGroup.Addon>TO:</InputGroup.Addon>
+                                <Input style={input} disabled value={to}></Input>
+                                <InputGroup.Button onClick={() => this.clearRoutes('to')}>
+                                    <Icon icon="times-circle" />
+                                </InputGroup.Button>
+                            </InputGroup>
 
-                        <InputNumber
-                            min={1}
-                            value={maxRoutes}
-                            style={{ fontSize: '22px' }}
-                            prefix={"Max number of routes:"}
-                            onChange={n => this.setMaxRoutes(n)} />
+                            <InputNumber
+                                min={1}
+                                value={maxRoutes}
+                                style={{ fontSize: '22px' }}
+                                prefix={"Max number of routes:"}
+                                onChange={n => this.setMaxRoutes(n)} />
 
-                        <SelectPicker
-                            style={selectStyle}
-                            placeholder={'Select a Vehicle Type'}
-                            onSelect={v => this.setCompatibilityVehicle(v)}
-                            onClean={this.clearVehicleType}
-                            data={vehicles}>
-                        </SelectPicker>
+                            <SelectPicker
+                                style={selectStyle}
+                                placeholder={'Select a Vehicle Type'}
+                                onSelect={v => this.setCompatibilityVehicle(v)}
+                                onClean={this.clearVehicleType}
+                                data={vehicles}>
+                            </SelectPicker>
 
-                        <Divider />
+                            <Divider />
+                        </div>
 
                         <RoutesInfo
                             routes={routes}

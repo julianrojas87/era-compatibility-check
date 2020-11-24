@@ -56,6 +56,13 @@ export {
     domesticBorderPointIcon*/
 };
 
+export const stickyMenu = {
+    "position": "sticky",
+    "top": 0,
+    "zIndex": 999,
+    "background": "#f7f7fa"
+};
+
 export const tileFrameStyle = {
     "fill-color": "#6F788A",
     "fill-opacity": 0.3
