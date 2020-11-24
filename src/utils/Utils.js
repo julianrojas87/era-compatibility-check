@@ -107,12 +107,11 @@ async function getAllVehicles(store) {
     return await Promise.all(Object.keys(vhs).map(async v => {
         const vh = queryGraphStore({
             store: store,
-            s: v,
-            p: RDFS.label
+            s: v
         });
 
         return {
-            label: vh[v][RDFS.label],
+            label: `${vh[v][ERA.typeVersionNumber]} - ${vh[v][RDFS.label]}`,
             value: v
         }
     }));

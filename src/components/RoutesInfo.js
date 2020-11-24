@@ -96,7 +96,7 @@ export class RoutesInfo extends Component {
             return (
                 <div>
                     <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span><br />
-                    <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, RDFS.label)}</a></span>
+                    <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, ERA.typeVersionNumber)}</a></span>
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid black', borderTop: '1px solid black' }}>
@@ -160,7 +160,7 @@ export class RoutesInfo extends Component {
                         ]);
                         op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
 
-                        // Force tile fetch, most likely necessary dut to wrong caching
+                        // Force tile fetch, most likely necessary due to wrong caching
                         if (!op) {
                             await Promise.all([
                                 this.props.fetchImplementationTile([

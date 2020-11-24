@@ -55,9 +55,8 @@ const MapBox = ReactMapboxGl({
 
 /**
  * PROBLEMS TO SOLVE:
- * 2. Stopping condition to avoid "infinite" queries 
- * 4. Put the algorithm inside a worker (?)
- * 5. Perform compatibility check!!
+ * 1. Stopping condition to avoid "infinite" queries 
+ * 2. Put the algorithm inside a worker (?)
  * 
  **/
 class MainLayout extends Component {

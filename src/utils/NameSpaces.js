@@ -47,7 +47,8 @@ export const ERA = {
     maxCurrentStandstillPantograph: 'http://era.europa.eu/ns#maxCurrentStandstillPantograph',
     minimumContactWireHeight: 'http://era.europa.eu/ns#minimumContactWireHeight',
     maximumContactWireHeight: 'http://era.europa.eu/ns#maximumContactWireHeight',
-    contactStripMaterial: 'http://era.europa.eu/ns#contactStripMaterial'
+    contactStripMaterial: 'http://era.europa.eu/ns#contactStripMaterial',
+    typeVersionNumber: 'http://era.europa.eu/ns#typeVersionNumber'
 }
 
 export const OP_TYPES = {
