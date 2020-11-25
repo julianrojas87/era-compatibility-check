@@ -480,12 +480,13 @@ function checkCompatibility(t, vehicle, store, includesVehicle) {
     }
 
     // Noise restrictions
-    const nrs = track[ERA.isQuiteRoute] && vehicle[ERA.operationalRestriction] === 'http://era.europa.eu/concepts/restrictions#2.2.7';
+    const nrs = track['http://era.europa.eu/ns#isQuietRoute'] === 'true' 
+        && vehicle[ERA.operationalRestriction] !== 'http://era.europa.eu/concepts/restrictions#2.7.7';
     report[ERA.operationalRestriction] = {
         predicates: [ERA.operationalRestriction, ERA.isQuiteRoute],
         compatible: nrs,
         values: {
-            track: track[ERA.isQuiteRoute],
+            track: track['http://era.europa.eu/ns#isQuietRoute'],
             vehicle: vehicle[ERA.operationalRestriction]
         }
     }

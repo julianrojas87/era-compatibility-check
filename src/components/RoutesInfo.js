@@ -65,7 +65,7 @@ export class RoutesInfo extends Component {
 
 
     formatValues = values => {
-        if (values) {
+        if (values || values === false) {
             const res = [];
             if (Array.isArray(values)) {
                 for (const v of values) {
