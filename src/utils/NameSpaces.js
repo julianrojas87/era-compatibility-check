@@ -53,7 +53,7 @@ export const ERA = {
     vehicleSeries: 'http://era.europa.eu/ns#vehicleSeries',
     vehicleNumber: 'http://era.europa.eu/ns#vehicleNumber',
     vehicleType: 'http://era.europa.eu/ns#vehicleType',
-    isQuiteRoute: 'http://era.europa.eu/ns#isQuiteRoute',
+    isQuietRoute: 'http://era.europa.eu/ns#isQuietRoute',
     operationalRestriction: 'http://era.europa.eu/ns#operationalRestriction'
 }
 
