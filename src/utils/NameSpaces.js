@@ -52,6 +52,9 @@ export const ERA = {
     typeVersionNumber: 'http://era.europa.eu/ns#typeVersionNumber',
     vehicleSeries: 'http://era.europa.eu/ns#vehicleSeries',
     vehicleNumber: 'http://era.europa.eu/ns#vehicleNumber',
+    vehicleType: 'http://era.europa.eu/ns#vehicleType',
+    isQuiteRoute: 'http://era.europa.eu/ns#isQuiteRoute',
+    operationalRestriction: 'http://era.europa.eu/ns#operationalRestriction'
 }
 
 export const OP_TYPES = {

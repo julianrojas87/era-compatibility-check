@@ -80,6 +80,7 @@ class MainLayout extends Component {
             loading: false,
             showTileFrames: true,
             tileFrames: new Map(),
+            compatibilityVehicleType: null,
             compatibilityVehicle: null,
             vehiclesTypes: [],
             vehicles: [],
@@ -130,11 +131,12 @@ class MainLayout extends Component {
 
     fetchVehicleTypes() {
         const rdfetcht = new RDFetch();
+        Alert.info('Loading Vehicles and Vehicle Types...', 3000);
         rdfetcht.addEventListener('message', e => {
             if (e.data === 'done') {
                 rdfetcht.terminate();
                 this.setVehicleTypesPicker();
-                Alert.info('Vehicle Types loaded successfully', 3500);
+                Alert.info('Vehicle Types loaded successfully', 3000);
             } else {
                 this.graphStore.add(Utils.rebuildQuad(e.data));
             }
@@ -147,7 +149,6 @@ class MainLayout extends Component {
 
     fetchVehicles() {
         const rdfetcht = new RDFetch();
-        Alert.info('Loading Vehicles and Vehicle Types progressively (might take a short while, we have a lot!) \n You can still use the app in the meantime', 10000);
         let count = 0;
         let currentSubject = null;
         let tempGraphStore = GraphStore();
@@ -156,7 +157,7 @@ class MainLayout extends Component {
             if (e.data === 'done') {
                 rdfetcht.terminate();
                 this.setVehiclePicker(tempGraphStore);
-                Alert.info(`Finally! we loaded ${count} vehicles!`, 7000);
+                Alert.info('Vehicles loaded successfully', 3000);
             } else {
                 const q = Utils.rebuildQuad(e.data);
 
@@ -379,8 +380,26 @@ class MainLayout extends Component {
         });
     }
 
-    setCompatibilityVehicle = v => {
-        this.setState({ compatibilityVehicle: v });
+    setCompatibilityVehicleType = v => {
+        this.setState({
+            compatibilityVehicleType: v,
+            compatibilityVehicle: null
+        });
+    };
+
+    setCompatibilityVehicle = async v => {
+        const vInfo = await Utils.getVehicleInfo(v, this.graphStore);
+        const vType = await Utils.getVehicleInfo(vInfo[ERA.vehicleType], this.graphStore);
+        let svt = null;
+
+        if (vType) {
+            svt = vType['@id']
+        }
+
+        this.setState({
+            compatibilityVehicle: v,
+            compatibilityVehicleType: svt,
+        });
     };
 
     fromTo = async feature => {
@@ -468,10 +487,27 @@ class MainLayout extends Component {
     }
 
     checkCompatibility = route => {
-        if (this.state.compatibilityVehicle) {
+        if (this.state.compatibilityVehicleType) {
+            if (this.state.compatibilityVehicle) {
+                const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
+                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
+                v[ERA.vehicleType] = vt;
+
+                const report = route.map(t => {
+                    return Utils.checkCompatibility(t, v, this.graphStore, true);
+                });
+                return report;
+            } else {
+                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
+                const report = route.map(t => {
+                    return Utils.checkCompatibility(t, vt, this.graphStore);
+                });
+                return report;
+            }
+        } else if (this.state.compatibilityVehicle) {
             const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
             const report = route.map(t => {
-                return Utils.checkCompatibility(t, v, this.graphStore);
+                return Utils.checkCompatibility(t, v, this.graphStore, true);
             });
             return report;
         }
@@ -492,6 +528,10 @@ class MainLayout extends Component {
     }
 
     clearVehicleType = () => {
+        this.setState({ compatibilityVehicleType: null });
+    }
+
+    clearVehicle = () => {
         this.setState({ compatibilityVehicle: null });
     }
 
@@ -548,6 +588,7 @@ class MainLayout extends Component {
             maxRoutes,
             calculatingRoutes,
             loaderMessage,
+            compatibilityVehicleType,
             compatibilityVehicle
         } = this.state;
 
@@ -590,18 +631,19 @@ class MainLayout extends Component {
                             <SelectPicker
                                 style={selectStyle}
                                 placeholder={'Select a Vehicle Type'}
-                                onSelect={v => this.setCompatibilityVehicle(v)}
+                                onSelect={v => this.setCompatibilityVehicleType(v)}
                                 onClean={this.clearVehicleType}
                                 data={vehicleTypes}
-                                /*defaultValue={}*/>
+                                value={compatibilityVehicleType}>
                             </SelectPicker>
 
                             <SelectPicker
                                 style={selectStyle}
                                 placeholder={'Select a Vehicle'}
                                 onSelect={v => this.setCompatibilityVehicle(v)}
-                                //onClean={this.clearVehicleType}
-                                data={vehicles}>
+                                onClean={this.clearVehicle}
+                                data={vehicles}
+                                value={compatibilityVehicle}>
                             </SelectPicker>
 
                             <Divider />
@@ -614,6 +656,7 @@ class MainLayout extends Component {
                             setLoaderMessage={this.setLoaderMessage}
                             fetchImplementationTile={this.fetchImplementationTile}
                             fetchAbstractionTile={this.fetchAbstractionTile}
+                            compatibilityVehicleType={compatibilityVehicleType}
                             compatibilityVehicle={compatibilityVehicle}
                             checkCompatibility={this.checkCompatibility}>
                         </RoutesInfo>

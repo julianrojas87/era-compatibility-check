@@ -141,10 +141,12 @@ function getVehicleInfo(v, store) {
     const vh = queryGraphStore({
         store: store,
         s: v
-    })[v];
+    });
 
-    vh['@id'] = v;
-    return vh;
+    if (vh && vh[v]) {
+        vh[v]['@id'] = v;
+        return vh[v];
+    }
 }
 
 function getMicroNodeInfo(geometry, lngLat, graphStore) {
@@ -310,168 +312,183 @@ function deepClone(obj) {
     throw new Error('Unable to copy object! Its type isn\'t supported');
 }
 
-function checkCompatibility(t, vehicle, store) {
+function checkCompatibility(t, vehicle, store, includesVehicle) {
     const track = queryGraphStore({
         store: store,
         s: t
     })[t];
     track['@id'] = t;
     const report = {};
+    let vehicleType = vehicle;
+
+    if(includesVehicle) {
+        vehicleType = vehicle[ERA.vehicleType];
+    }
 
     // Check Gauging
-    const gauging = compareEqualValues(track[ERA.gaugingProfile], vehicle[ERA.gaugingProfile]);
+    const gauging = compareEqualValues(track[ERA.gaugingProfile], vehicleType[ERA.gaugingProfile]);
     report[ERA.gaugingProfile] = {
         predicates: [ERA.gaugingProfile],
         compatible: gauging && gauging.length > 0,
         values: {
             track: track[ERA.gaugingProfile],
-            vehicle: vehicle[ERA.gaugingProfile]
+            vehicle: vehicleType[ERA.gaugingProfile]
         }
     }
 
     // Check Train detection system
-    const tds = compareEqualValues(track[ERA.trainDetectionSystem], vehicle[ERA.trainDetectionSystem]);
+    const tds = compareEqualValues(track[ERA.trainDetectionSystem], vehicleType[ERA.trainDetectionSystem]);
     report[ERA.trainDetectionSystem] = {
         predicates: [ERA.trainDetectionSystem],
         compatible: tds && tds.length > 0,
         values: {
             track: track[ERA.trainDetectionSystem],
-            vehicle: vehicle[ERA.trainDetectionSystem]
+            vehicle: vehicleType[ERA.trainDetectionSystem]
         }
     }
 
     // Check Hot axle box detection
-    const habd = track[ERA.hasHotAxleBoxDetector] && vehicle[ERA.axleBearingConditionMonitoring];
+    const habd = track[ERA.hasHotAxleBoxDetector] && vehicleType[ERA.axleBearingConditionMonitoring];
     report[ERA.hasHotAxleBoxDetector] = {
         predicates: [ERA.hasHotAxleBoxDetector, ERA.axleBearingConditionMonitoring],
         compatible: habd,
         values: {
             track: track[ERA.hasHotAxleBoxDetector],
-            vehicle: vehicle[ERA.axleBearingConditionMonitoring]
+            vehicle: vehicleType[ERA.axleBearingConditionMonitoring]
         }
     }
 
     // Check Rail inclination
-    const ri = compareEqualValues(track[ERA.railInclination], vehicle[ERA.railInclination]);
+    const ri = compareEqualValues(track[ERA.railInclination], vehicleType[ERA.railInclination]);
     report[ERA.railInclination] = {
         predicates: [ERA.railInclination],
         compatible: ri,
         values: {
             track: track[ERA.railInclination],
-            vehicle: vehicle[ERA.railInclination]
+            vehicle: vehicleType[ERA.railInclination]
         }
     }
 
     // Check Wheelset gauge
-    const wsg = compareEqualValues(track[ERA.wheelSetGauge], vehicle[ERA.wheelSetGauge]);
+    const wsg = compareEqualValues(track[ERA.wheelSetGauge], vehicleType[ERA.wheelSetGauge]);
     report[ERA.wheelSetGauge] = {
         predicates: [ERA.wheelSetGauge],
         compatible: wsg && wsg.length > 0,
         values: {
             track: track[ERA.wheelSetGauge],
-            vehicle: vehicle[ERA.wheelSetGauge]
+            vehicle: vehicleType[ERA.wheelSetGauge]
         }
     }
 
     // Check Minimum wheel diameter
-    const mwd = parseInt(vehicle[ERA.minimumWheelDiameter]) >= parseInt(track[ERA.minimumWheelDiameter]);
+    const mwd = parseInt(vehicleType[ERA.minimumWheelDiameter]) >= parseInt(track[ERA.minimumWheelDiameter]);
     report[ERA.minimumWheelDiameter] = {
         predicates: [ERA.minimumWheelDiameter],
         compatible: mwd,
         values: {
             track: track[ERA.minimumWheelDiameter],
-            vehicle: vehicle[ERA.minimumWheelDiameter]
+            vehicle: vehicleType[ERA.minimumWheelDiameter]
         }
     }
 
     // Check Minimum horizontal radius
-    const mhr = parseInt(track[ERA.minimumHorizontalRadius]) >= parseInt(vehicle[ERA.minimumHorizontalRadius]);
+    const mhr = parseInt(track[ERA.minimumHorizontalRadius]) >= parseInt(vehicleType[ERA.minimumHorizontalRadius]);
     report[ERA.minimumHorizontalRadius] = {
         predicates: [ERA.minimumHorizontalRadius],
         compatible: mhr,
         values: {
             track: track[ERA.minimumHorizontalRadius],
-            vehicle: vehicle[ERA.minimumHorizontalRadius]
+            vehicle: vehicleType[ERA.minimumHorizontalRadius]
         }
     }
 
     // Check min temperature
-    const mint = parseInt(vehicle[ERA.minimumTemperature]) <= parseInt(track[ERA.minimumTemperature]);
+    const mint = parseInt(vehicleType[ERA.minimumTemperature]) <= parseInt(track[ERA.minimumTemperature]);
     report[ERA.minimumTemperature] = {
         predicates: [ERA.minimumTemperature],
         compatible: mint,
         values: {
             track: track[ERA.minimumTemperature],
-            vehicle: vehicle[ERA.minimumTemperature]
+            vehicle: vehicleType[ERA.minimumTemperature]
         }
     }
 
     // Check max temperature
-    const maxt = parseInt(vehicle[ERA.maximumTemperature]) >= parseInt(track[ERA.maximumTemperature]);
+    const maxt = parseInt(vehicleType[ERA.maximumTemperature]) >= parseInt(track[ERA.maximumTemperature]);
     report[ERA.maximumTemperature] = {
         predicates: [ERA.maximumTemperature],
         compatible: maxt,
         values: {
             track: track[ERA.maximumTemperature],
-            vehicle: vehicle[ERA.maximumTemperature]
+            vehicle: vehicleType[ERA.maximumTemperature]
         }
     }
 
     // Check energy supply system
-    const ess = compareEqualValues(track[ERA.energySupplySystem], vehicle[ERA.energySupplySystem]);
+    const ess = compareEqualValues(track[ERA.energySupplySystem], vehicleType[ERA.energySupplySystem]);
     report[ERA.energySupplySystem] = {
         predicates: [ERA.energySupplySystem],
         compatible: ess,
         values: {
             track: track[ERA.energySupplySystem],
-            vehicle: vehicle[ERA.energySupplySystem]
+            vehicle: vehicleType[ERA.energySupplySystem]
         }
     }
 
     // Check max current at standstill per pantograph
-    const mcsp = parseFloat(vehicle[ERA.maxCurrentStandstillPantograph]) <= parseFloat(track[ERA.maxCurrentStandstillPantograph]);
+    const mcsp = parseFloat(vehicleType[ERA.maxCurrentStandstillPantograph]) <= parseFloat(track[ERA.maxCurrentStandstillPantograph]);
     report[ERA.maxCurrentStandstillPantograph] = {
         predicates: [ERA.maxCurrentStandstillPantograph],
         compatible: mcsp,
         values: {
             track: parseFloat(track[ERA.maxCurrentStandstillPantograph]),
-            vehicle: parseFloat(vehicle[ERA.maxCurrentStandstillPantograph])
+            vehicle: parseFloat(vehicleType[ERA.maxCurrentStandstillPantograph])
         }
     }
 
     // Check min contact wire height
-    const mincwh = parseFloat(vehicle[ERA.minimumContactWireHeight]) <= parseFloat(track[ERA.minimumContactWireHeight]);
+    const mincwh = parseFloat(vehicleType[ERA.minimumContactWireHeight]) <= parseFloat(track[ERA.minimumContactWireHeight]);
     report[ERA.minimumContactWireHeight] = {
         predicates: [ERA.minimumContactWireHeight],
         compatible: mincwh,
         values: {
             track: parseFloat(track[ERA.minimumContactWireHeight]),
-            vehicle: parseFloat(vehicle[ERA.minimumContactWireHeight])
+            vehicle: parseFloat(vehicleType[ERA.minimumContactWireHeight])
         }
     }
 
     // Check max contact wire height
-    const maxcwh = parseFloat(vehicle[ERA.maximumContactWireHeight]) >= parseFloat(track[ERA.maximumContactWireHeight]);
+    const maxcwh = parseFloat(vehicleType[ERA.maximumContactWireHeight]) >= parseFloat(track[ERA.maximumContactWireHeight]);
     report[ERA.maximumContactWireHeight] = {
         predicates: [ERA.maximumContactWireHeight],
         compatible: maxcwh,
         values: {
             track: parseFloat(track[ERA.maximumContactWireHeight]),
-            vehicle: parseFloat(vehicle[ERA.maximumContactWireHeight])
+            vehicle: parseFloat(vehicleType[ERA.maximumContactWireHeight])
         }
     }
 
     // Check contact strip materials
-    const csm = compareEqualValues(track[ERA.contactStripMaterial], vehicle[ERA.contactStripMaterial]);
+    const csm = compareEqualValues(track[ERA.contactStripMaterial], vehicleType[ERA.contactStripMaterial]);
     report[ERA.contactStripMaterial] = {
         predicates: [ERA.contactStripMaterial],
         compatible: csm,
         values: {
             track: track[ERA.contactStripMaterial],
-            vehicle: vehicle[ERA.contactStripMaterial]
+            vehicle: vehicleType[ERA.contactStripMaterial]
         }
     }
 
+    // Noise restrictions
+    const nrs = track[ERA.isQuiteRoute] && vehicle[ERA.operationalRestriction] === 'http://era.europa.eu/concepts/restrictions#2.2.7';
+    report[ERA.operationalRestriction] = {
+        predicates: [ERA.operationalRestriction, ERA.isQuiteRoute],
+        compatible: nrs,
+        values: {
+            track: track[ERA.isQuiteRoute],
+            vehicle: vehicle[ERA.operationalRestriction]
+        }
+    }
     return report;
 }
 
