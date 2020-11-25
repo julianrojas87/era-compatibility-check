@@ -15,8 +15,8 @@ export {
 };
 
 export const ERALogo = styled.img`
-    width: 80px;
-    height: 50px;
+    width: 115px;
+    height: 70px;
     z-index: 9000;
 `;
 
@@ -80,7 +80,7 @@ export const sideBar = {
 export const sidebarHeader = {
     padding: 18,
     fontSize: 22,
-    height: 56,
+    height: 70,
     background: '#004494',
     color: ' #fff',
     whiteSpace: 'nowrap',

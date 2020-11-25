@@ -601,7 +601,7 @@ class MainLayout extends Component {
                                 <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
                                 <div style={sidebarHeader}>
                                     <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
-                                    <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
+                                    <span style={{ marginLeft: 12 }}>Route Compatibility Check</span>
                                 </div>
                             </Sidenav.Header>
 
