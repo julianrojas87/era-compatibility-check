@@ -33,6 +33,7 @@ export const ERA = {
     hasImplementation: 'http://era.europa.eu/ns#hasImplementation',
     MicroLink: 'http://era.europa.eu/ns#MicroLink',
     VehicleType: 'http://era.europa.eu/ns#VehicleType',
+    Vehicle: 'http://era.europa.eu/ns#Vehicle',
     trainDetectionSystem: 'http://era.europa.eu/ns#trainDetectionSystem',
     gaugingProfile: 'http://era.europa.eu/ns#gaugingProfile',
     axleBearingConditionMonitoring: 'http://era.europa.eu/ns#axleBearingConditionMonitoring',
@@ -47,7 +48,13 @@ export const ERA = {
     maxCurrentStandstillPantograph: 'http://era.europa.eu/ns#maxCurrentStandstillPantograph',
     minimumContactWireHeight: 'http://era.europa.eu/ns#minimumContactWireHeight',
     maximumContactWireHeight: 'http://era.europa.eu/ns#maximumContactWireHeight',
-    contactStripMaterial: 'http://era.europa.eu/ns#contactStripMaterial'
+    contactStripMaterial: 'http://era.europa.eu/ns#contactStripMaterial',
+    typeVersionNumber: 'http://era.europa.eu/ns#typeVersionNumber',
+    vehicleSeries: 'http://era.europa.eu/ns#vehicleSeries',
+    vehicleNumber: 'http://era.europa.eu/ns#vehicleNumber',
+    vehicleType: 'http://era.europa.eu/ns#vehicleType',
+    isQuiteRoute: 'http://era.europa.eu/ns#isQuiteRoute',
+    operationalRestriction: 'http://era.europa.eu/ns#operationalRestriction'
 }
 
 export const OP_TYPES = {

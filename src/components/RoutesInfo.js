@@ -48,16 +48,18 @@ export class RoutesInfo extends Component {
     }
 
     getLabel = (s, p) => {
-        const l = Utils.queryGraphStore({
-            store: this.props.graphStore,
-            s: s
-        })
+        if (s) {
+            const l = Utils.queryGraphStore({
+                store: this.props.graphStore,
+                s: s
+            })
 
-        if (l) {
-            if(Array.isArray(l[s][p])) return l[s][p][0];
-            return l[s][p];
-        } else {
-            return (<span style={{ color: 'red' }}>unknown term in KG</span>)
+            if (l) {
+                if (Array.isArray(l[s][p])) return l[s][p][0];
+                return l[s][p];
+            } else {
+                return (<span style={{ color: 'red' }}>unknown term in KG</span>)
+            }
         }
     }
 
@@ -96,7 +98,8 @@ export class RoutesInfo extends Component {
             return (
                 <div>
                     <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span><br />
-                    <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, RDFS.label)}</a></span>
+                    <span><span style={{ fontWeight: 'bold' }}>Vehicle Type:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicleType)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicleType, ERA.typeVersionNumber)}</a></span><br />
+                    <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, ERA.vehicleNumber)}</a></span>
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid black', borderTop: '1px solid black' }}>
@@ -138,6 +141,7 @@ export class RoutesInfo extends Component {
     async componentDidUpdate(prevProps) {
         const { routes } = this.props;
         if (JSON.stringify(prevProps.routes) !== JSON.stringify(routes)
+            || prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType
             || prevProps.compatibilityVehicle !== this.props.compatibilityVehicle) {
             const panels = [];
 
@@ -160,7 +164,7 @@ export class RoutesInfo extends Component {
                         ]);
                         op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
 
-                        // Force tile fetch, most likely necessary dut to wrong caching
+                        // Force tile fetch, most likely necessary due to wrong caching
                         if (!op) {
                             await Promise.all([
                                 this.props.fetchImplementationTile([
@@ -185,7 +189,7 @@ export class RoutesInfo extends Component {
                 }
 
                 // Flag that we have data to perform route compatibility
-                if (this.props.compatibilityVehicle) {
+                if (this.props.compatibilityVehicleType || this.props.compatibilityVehicle) {
                     report = this.props.checkCompatibility(tracks);
                 }
 

@@ -9,51 +9,27 @@ export const mapStyle = {
 // Operational point icons
 const mnIcon = new Image(20, 20);
 mnIcon.src = mnIconPath;
-/*const stationIcon = new Image(60, 60);
-stationIcon.src = 'src/img/station-icon.png';
-const smallStationIcon = new Image(30, 30);
-smallStationIcon.src = 'src/img/small-station-icon.png';
-const passengerTerminalIcon = new Image(30, 30);
-passengerTerminalIcon.src = 'src/img/passenger-terminal-icon.svg';
-const freightTerminalIcon = new Image(40, 40);
-freightTerminalIcon.src = 'src/img/freight-terminal-icon.png';
-const depotOrWorkshopIcon = new Image(40, 40);
-depotOrWorkshopIcon.src = 'src/img/depot-or-workshop-icon.png';
-const technicalServicesIcon = new Image(30, 30);
-technicalServicesIcon.src = 'src/img/technical-services-icon.svg';
-const passengerStopIcon = new Image(30, 30);
-passengerStopIcon.src = 'src/img/passenger-stop-icon.svg';
-const junctionIcon = new Image(30, 30);
-junctionIcon.src = 'src/img/junction-icon.svg';
-const borderPointIcon = new Image(30, 30);
-borderPointIcon.src = 'src/img/border-point-icon.svg';
-const shuntungYardIcon = new Image(30, 30);
-shuntungYardIcon.src = 'src/img/shuntung-yard-icon.svg';
-const technicalChangeIcon = new Image(30, 30);
-technicalChangeIcon.src = 'src/img/technical-change-icon.png';
-const switchIcon = new Image(30, 30);
-switchIcon.src = 'src/img/switch-icon.svg';
-const privateSidingIcon = new Image(40, 40);
-privateSidingIcon.src = 'src/img/private-siding-icon.svg';
-const domesticBorderPointIcon = new Image(30, 30);
-domesticBorderPointIcon.src = 'src/img/domestic-border-point-icon.svg';*/
 
 export {
     mnIcon
-    /*stationIcon,
-    smallStationIcon,
-    passengerTerminalIcon,
-    freightTerminalIcon,
-    depotOrWorkshopIcon,
-    technicalServicesIcon,
-    passengerStopIcon,
-    junctionIcon,
-    borderPointIcon,
-    shuntungYardIcon,
-    technicalChangeIcon,
-    switchIcon,
-    privateSidingIcon,
-    domesticBorderPointIcon*/
+};
+
+export const ERALogo = styled.img`
+    width: 80px;
+    height: 50px;
+    z-index: 9000;
+`;
+
+export const eraLogoWrapper = {
+    "float": "left",
+    "paddingRight": "10px"
+}
+
+export const stickyMenu = {
+    "position": "sticky",
+    "top": 0,
+    "zIndex": 999,
+    "background": "#f7f7fa"
 };
 
 export const tileFrameStyle = {
@@ -105,7 +81,7 @@ export const sidebarHeader = {
     padding: 18,
     fontSize: 22,
     height: 56,
-    background: '#34c3ff',
+    background: '#004494',
     color: ' #fff',
     whiteSpace: 'nowrap',
     overflow: 'hidden'

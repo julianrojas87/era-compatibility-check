@@ -9,6 +9,10 @@ code {
     font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
+.rs-picker-menu {
+    z-index: 9999;
+}
+
 .rs-alert-item-content {
     font-size: 18px;
 }
@@ -27,6 +31,12 @@ code {
 .rs-steps-vertical .rs-steps-item-tail {
     border-left-width: 5px;
     border-left-style: dashed;
+}
+
+.rs-steps-item-status-process .rs-steps-item-icon-wrapper:not(.rs-steps-item-custom-icon) {
+    border-color: #004494;
+    background: #004494;
+    color: #fff;
 }
 
 .rs-loader-wrapper {

@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import loadingGifPath from '../img/loading.gif';
+import eraLogoPath from '../img/era-logo.png';
 import ReactMapboxGl, { Popup, ZoomControl } from "react-mapbox-gl";
 import { parse as wktParse } from 'wellknown';
 import GraphStore from '@graphy/memory.dataset.fast';
@@ -29,11 +30,14 @@ import {
     Loader
 } from "rsuite";
 import {
+    ERALogo,
+    eraLogoWrapper,
     input,
     inputGroup,
     selectStyle,
     sideBar,
     sidebarHeader,
+    stickyMenu,
     mapStyle,
     StyledPopup,
     LoadingGIF,
@@ -41,6 +45,7 @@ import {
 } from '../styles/Styles';
 import {
     ERA_VOCABULARY,
+    ERA_VEHICLE_TYPES,
     ERA_VEHICLES,
     IMPLEMENTATION_TILES,
     ABSTRACTION_TILES,
@@ -55,9 +60,8 @@ const MapBox = ReactMapboxGl({
 
 /**
  * PROBLEMS TO SOLVE:
- * 2. Stopping condition to avoid "infinite" queries 
- * 4. Put the algorithm inside a worker (?)
- * 5. Perform compatibility check!!
+ * 1. Stopping condition to avoid "infinite" queries 
+ * 2. Put the algorithm inside a worker (?)
  * 
  **/
 class MainLayout extends Component {
@@ -76,7 +80,9 @@ class MainLayout extends Component {
             loading: false,
             showTileFrames: true,
             tileFrames: new Map(),
+            compatibilityVehicleType: null,
             compatibilityVehicle: null,
+            vehiclesTypes: [],
             vehicles: [],
             from: '',
             to: '',
@@ -100,7 +106,8 @@ class MainLayout extends Component {
         this.to = {};
 
         this.fetchVocabulary();
-        this.fetchVehicles();
+        this.fetchVehicleTypes();
+        this.fetchVehicles()
     }
 
     componentDidMount() {
@@ -122,22 +129,54 @@ class MainLayout extends Component {
         });
     }
 
-    fetchVehicles() {
+    fetchVehicleTypes() {
         const rdfetcht = new RDFetch();
-        const alert = Alert.info('Loading Vehicle Types...', 20000);
+        Alert.info('Loading Vehicles and Vehicle Types...', 3000);
         rdfetcht.addEventListener('message', e => {
             if (e.data === 'done') {
                 rdfetcht.terminate();
-                this.setVehiclePicker();
-                alert.close();
-                Alert.info('Vehicle Types loaded successfully', 5000);
+                this.setVehicleTypesPicker();
+                Alert.info('Vehicle Types loaded successfully', 3000);
             } else {
                 this.graphStore.add(Utils.rebuildQuad(e.data));
             }
         });
         rdfetcht.postMessage({
+            url: ERA_VEHICLE_TYPES,
+            headers: { 'Accept': 'text/turtle' }
+        });
+    }
+
+    fetchVehicles() {
+        const rdfetcht = new RDFetch();
+        let count = 0;
+        let currentSubject = null;
+        let tempGraphStore = GraphStore();
+
+        rdfetcht.addEventListener('message', e => {
+            if (e.data === 'done') {
+                rdfetcht.terminate();
+                this.setVehiclePicker(tempGraphStore);
+                Alert.info('Vehicles loaded successfully', 3000);
+            } else {
+                const q = Utils.rebuildQuad(e.data);
+
+                if (q.subject.value !== currentSubject) {
+                    currentSubject = q.subject.value;
+                    count++;
+                    if (count % 50000 === 0) {
+                        this.setVehiclePicker(tempGraphStore);
+                        tempGraphStore = GraphStore();
+                    }
+                }
+
+                this.graphStore.add(q);
+                tempGraphStore.add(q);
+            }
+        });
+        rdfetcht.postMessage({
             url: ERA_VEHICLES,
-            headers: { 'Accept': 'application/n-quads' }
+            headers: { 'Accept': 'text/turtle' }
         });
     }
 
@@ -328,13 +367,39 @@ class MainLayout extends Component {
         this.setState({ popup: null });
     }
 
-    setVehiclePicker = async () => {
-        const vhs = await Utils.getAllVehicles(this.graphStore);
-        this.setState({ vehicles: vhs });
+    setVehicleTypesPicker = async () => {
+        const vts = await Utils.getAllVehicleTypes(this.graphStore);
+        this.setState({ vehicleTypes: vts });
     }
 
-    setCompatibilityVehicle = v => {
-        this.setState({ compatibilityVehicle: v });
+    setVehiclePicker = async gs => {
+        const vhs = await Utils.getAllVehicles(gs);
+
+        this.setState(state => {
+            return { vehicles: [...state.vehicles, ...vhs] }
+        });
+    }
+
+    setCompatibilityVehicleType = v => {
+        this.setState({
+            compatibilityVehicleType: v,
+            compatibilityVehicle: null
+        });
+    };
+
+    setCompatibilityVehicle = async v => {
+        const vInfo = await Utils.getVehicleInfo(v, this.graphStore);
+        const vType = await Utils.getVehicleInfo(vInfo[ERA.vehicleType], this.graphStore);
+        let svt = null;
+
+        if (vType) {
+            svt = vType['@id']
+        }
+
+        this.setState({
+            compatibilityVehicle: v,
+            compatibilityVehicleType: svt,
+        });
     };
 
     fromTo = async feature => {
@@ -422,10 +487,27 @@ class MainLayout extends Component {
     }
 
     checkCompatibility = route => {
-        if (this.state.compatibilityVehicle) {
+        if (this.state.compatibilityVehicleType) {
+            if (this.state.compatibilityVehicle) {
+                const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
+                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
+                v[ERA.vehicleType] = vt;
+
+                const report = route.map(t => {
+                    return Utils.checkCompatibility(t, v, this.graphStore, true);
+                });
+                return report;
+            } else {
+                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
+                const report = route.map(t => {
+                    return Utils.checkCompatibility(t, vt, this.graphStore);
+                });
+                return report;
+            }
+        } else if (this.state.compatibilityVehicle) {
             const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
             const report = route.map(t => {
-                return Utils.checkCompatibility(t, v, this.graphStore);
+                return Utils.checkCompatibility(t, v, this.graphStore, true);
             });
             return report;
         }
@@ -446,6 +528,10 @@ class MainLayout extends Component {
     }
 
     clearVehicleType = () => {
+        this.setState({ compatibilityVehicleType: null });
+    }
+
+    clearVehicle = () => {
         this.setState({ compatibilityVehicle: null });
     }
 
@@ -494,6 +580,7 @@ class MainLayout extends Component {
             loading,
             tileFrames,
             showTileFrames,
+            vehicleTypes,
             vehicles,
             routes,
             from,
@@ -501,6 +588,7 @@ class MainLayout extends Component {
             maxRoutes,
             calculatingRoutes,
             loaderMessage,
+            compatibilityVehicleType,
             compatibilityVehicle
         } = this.state;
 
@@ -508,45 +596,58 @@ class MainLayout extends Component {
             <div className="show-fake-browser sidebar-page">
                 <Container>
                     <Sidebar style={sideBar}>
-                        <Sidenav.Header>
-                            <div style={sidebarHeader}>
-                                <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
-                                <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
-                            </div>
-                        </Sidenav.Header>
+                        <div style={stickyMenu}>
+                            <Sidenav.Header>
+                                <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
+                                <div style={sidebarHeader}>
+                                    <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
+                                    <span style={{ marginLeft: 12 }}>ERA Route Compatibility Check</span>
+                                </div>
+                            </Sidenav.Header>
 
-                        <InputGroup inside style={inputGroup}>
-                            <InputGroup.Addon>FROM:</InputGroup.Addon>
-                            <Input style={input} disabled value={from}></Input>
-                            <InputGroup.Button onClick={() => this.clearRoutes('from')}>
-                                <Icon icon="times-circle" />
-                            </InputGroup.Button>
-                        </InputGroup>
+                            <InputGroup inside style={inputGroup}>
+                                <InputGroup.Addon>FROM:</InputGroup.Addon>
+                                <Input style={input} disabled value={from}></Input>
+                                <InputGroup.Button onClick={() => this.clearRoutes('from')}>
+                                    <Icon icon="times-circle" />
+                                </InputGroup.Button>
+                            </InputGroup>
 
-                        <InputGroup inside style={inputGroup}>
-                            <InputGroup.Addon>TO:</InputGroup.Addon>
-                            <Input style={input} disabled value={to}></Input>
-                            <InputGroup.Button onClick={() => this.clearRoutes('to')}>
-                                <Icon icon="times-circle" />
-                            </InputGroup.Button>
-                        </InputGroup>
+                            <InputGroup inside style={inputGroup}>
+                                <InputGroup.Addon>TO:</InputGroup.Addon>
+                                <Input style={input} disabled value={to}></Input>
+                                <InputGroup.Button onClick={() => this.clearRoutes('to')}>
+                                    <Icon icon="times-circle" />
+                                </InputGroup.Button>
+                            </InputGroup>
 
-                        <InputNumber
-                            min={1}
-                            value={maxRoutes}
-                            style={{ fontSize: '22px' }}
-                            prefix={"Max number of routes:"}
-                            onChange={n => this.setMaxRoutes(n)} />
+                            <InputNumber
+                                min={1}
+                                value={maxRoutes}
+                                style={{ fontSize: '22px' }}
+                                prefix={"Max number of routes:"}
+                                onChange={n => this.setMaxRoutes(n)} />
 
-                        <SelectPicker
-                            style={selectStyle}
-                            placeholder={'Select a Vehicle Type'}
-                            onSelect={v => this.setCompatibilityVehicle(v)}
-                            onClean={this.clearVehicleType}
-                            data={vehicles}>
-                        </SelectPicker>
+                            <SelectPicker
+                                style={selectStyle}
+                                placeholder={'Select a Vehicle Type'}
+                                onSelect={v => this.setCompatibilityVehicleType(v)}
+                                onClean={this.clearVehicleType}
+                                data={vehicleTypes}
+                                value={compatibilityVehicleType}>
+                            </SelectPicker>
 
-                        <Divider />
+                            <SelectPicker
+                                style={selectStyle}
+                                placeholder={'Select a Vehicle'}
+                                onSelect={v => this.setCompatibilityVehicle(v)}
+                                onClean={this.clearVehicle}
+                                data={vehicles}
+                                value={compatibilityVehicle}>
+                            </SelectPicker>
+
+                            <Divider />
+                        </div>
 
                         <RoutesInfo
                             routes={routes}
@@ -555,6 +656,7 @@ class MainLayout extends Component {
                             setLoaderMessage={this.setLoaderMessage}
                             fetchImplementationTile={this.fetchImplementationTile}
                             fetchAbstractionTile={this.fetchAbstractionTile}
+                            compatibilityVehicleType={compatibilityVehicleType}
                             compatibilityVehicle={compatibilityVehicle}
                             checkCompatibility={this.checkCompatibility}>
                         </RoutesInfo>
