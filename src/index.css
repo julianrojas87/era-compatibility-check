@@ -9,6 +9,10 @@ code {
     font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
+.rs-picker-menu {
+    z-index: 9999;
+}
+
 .rs-alert-item-content {
     font-size: 18px;
 }

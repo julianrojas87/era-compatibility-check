@@ -97,7 +97,7 @@ function queryGraphStore(params) {
     }
 }
 
-async function getAllVehicles(store) {
+async function getAllVehicleTypes(store) {
     const vhs = queryGraphStore({
         store: store,
         p: a,
@@ -112,6 +112,26 @@ async function getAllVehicles(store) {
 
         return {
             label: `${vh[v][ERA.typeVersionNumber]} - ${vh[v][RDFS.label]}`,
+            value: v
+        }
+    }));
+}
+
+async function getAllVehicles(store) {
+    const vhs = queryGraphStore({
+        store: store,
+        p: a,
+        o: ERA.Vehicle
+    });
+
+    return await Promise.all(Object.keys(vhs).map(async v => {
+        const vh = queryGraphStore({
+            store: store,
+            s: v
+        });
+
+        return {
+            label: `${vh[v][ERA.vehicleNumber]} - ${vh[v][ERA.vehicleSeries] || ''}`,
             value: v
         }
     }));
@@ -484,6 +504,7 @@ export default {
     rebuildQuad,
     queryGraphStore,
     getVehicleInfo,
+    getAllVehicleTypes,
     getAllVehicles,
     getMicroNodeInfo,
     getMicroNodePorts,

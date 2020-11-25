@@ -45,6 +45,7 @@ import {
 } from '../styles/Styles';
 import {
     ERA_VOCABULARY,
+    ERA_VEHICLE_TYPES,
     ERA_VEHICLES,
     IMPLEMENTATION_TILES,
     ABSTRACTION_TILES,
@@ -80,6 +81,7 @@ class MainLayout extends Component {
             showTileFrames: true,
             tileFrames: new Map(),
             compatibilityVehicle: null,
+            vehiclesTypes: [],
             vehicles: [],
             from: '',
             to: '',
@@ -103,7 +105,8 @@ class MainLayout extends Component {
         this.to = {};
 
         this.fetchVocabulary();
-        this.fetchVehicles();
+        this.fetchVehicleTypes();
+        this.fetchVehicles()
     }
 
     componentDidMount() {
@@ -125,22 +128,54 @@ class MainLayout extends Component {
         });
     }
 
-    fetchVehicles() {
+    fetchVehicleTypes() {
         const rdfetcht = new RDFetch();
-        const alert = Alert.info('Loading Vehicle Types...', 20000);
         rdfetcht.addEventListener('message', e => {
             if (e.data === 'done') {
                 rdfetcht.terminate();
-                this.setVehiclePicker();
-                alert.close();
-                Alert.info('Vehicle Types loaded successfully', 5000);
+                this.setVehicleTypesPicker();
+                Alert.info('Vehicle Types loaded successfully', 3500);
             } else {
                 this.graphStore.add(Utils.rebuildQuad(e.data));
             }
         });
         rdfetcht.postMessage({
+            url: ERA_VEHICLE_TYPES,
+            headers: { 'Accept': 'text/turtle' }
+        });
+    }
+
+    fetchVehicles() {
+        const rdfetcht = new RDFetch();
+        Alert.info('Loading Vehicles and Vehicle Types progressively (might take a short while, we have a lot!) \n You can still use the app in the meantime', 10000);
+        let count = 0;
+        let currentSubject = null;
+        let tempGraphStore = GraphStore();
+
+        rdfetcht.addEventListener('message', e => {
+            if (e.data === 'done') {
+                rdfetcht.terminate();
+                this.setVehiclePicker(tempGraphStore);
+                Alert.info(`Finally! we loaded ${count} vehicles!`, 7000);
+            } else {
+                const q = Utils.rebuildQuad(e.data);
+
+                if (q.subject.value !== currentSubject) {
+                    currentSubject = q.subject.value;
+                    count++;
+                    if (count % 50000 === 0) {
+                        this.setVehiclePicker(tempGraphStore);
+                        tempGraphStore = GraphStore();
+                    }
+                }
+
+                this.graphStore.add(q);
+                tempGraphStore.add(q);
+            }
+        });
+        rdfetcht.postMessage({
             url: ERA_VEHICLES,
-            headers: { 'Accept': 'application/n-quads' }
+            headers: { 'Accept': 'text/turtle' }
         });
     }
 
@@ -331,9 +366,17 @@ class MainLayout extends Component {
         this.setState({ popup: null });
     }
 
-    setVehiclePicker = async () => {
-        const vhs = await Utils.getAllVehicles(this.graphStore);
-        this.setState({ vehicles: vhs });
+    setVehicleTypesPicker = async () => {
+        const vts = await Utils.getAllVehicleTypes(this.graphStore);
+        this.setState({ vehicleTypes: vts });
+    }
+
+    setVehiclePicker = async gs => {
+        const vhs = await Utils.getAllVehicles(gs);
+
+        this.setState(state => {
+            return { vehicles: [...state.vehicles, ...vhs] }
+        });
     }
 
     setCompatibilityVehicle = v => {
@@ -497,6 +540,7 @@ class MainLayout extends Component {
             loading,
             tileFrames,
             showTileFrames,
+            vehicleTypes,
             vehicles,
             routes,
             from,
@@ -548,6 +592,15 @@ class MainLayout extends Component {
                                 placeholder={'Select a Vehicle Type'}
                                 onSelect={v => this.setCompatibilityVehicle(v)}
                                 onClean={this.clearVehicleType}
+                                data={vehicleTypes}
+                                /*defaultValue={}*/>
+                            </SelectPicker>
+
+                            <SelectPicker
+                                style={selectStyle}
+                                placeholder={'Select a Vehicle'}
+                                onSelect={v => this.setCompatibilityVehicle(v)}
+                                //onClean={this.clearVehicleType}
                                 data={vehicles}>
                             </SelectPicker>
 
