@@ -1,7 +1,7 @@
 {
-  "name": "era-ui",
-  "version": "1.1.2",
-  "description": "ERA's routable tiles UI ",
+  "name": "era-compatibility-check",
+  "version": "1.3.0",
+  "description": "ERA's route compatibility check application",
   "scripts": {
     "start": "webpack-dev-server --open --mode development",
     "build": "webpack --mode production"
@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.ilabt.imec.be/era/era-ui.git"
+    "url": "git+https://github.com/julianrojas87/era-compatibility-check.git"
   },
   "browserslist": {
     "production": [
