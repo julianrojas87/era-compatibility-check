@@ -1,6 +1,4 @@
 import React, { Component } from "react";
-import loadingGifPath from '../img/loading.gif';
-import eraLogoPath from '../img/era-logo.png';
 import ReactMapboxGl, { Popup, ZoomControl } from "react-mapbox-gl";
 import { parse as wktParse } from 'wellknown';
 import GraphStore from '@graphy/memory.dataset.fast';
@@ -8,12 +6,15 @@ import { OperationalPointsLayer } from './OperationalPointsLayer';
 import { TileFramesLayer } from './TileFramesLayer';
 import { RoutesLayer } from './RoutesLayer';
 import { RoutesInfo } from './RoutesInfo';
+import { HelpPage } from './HelpPage';
 import RDFetch from '../workers/RDFetch.worker';
 import { TileFetcherWorkerPool } from '../workers/TileFetcherWorkerPool';
 import { NetworkGraph } from '../algorithm/NetworkGraph';
 import { PathFinder } from '../algorithm/PathFinder';
 import { findIntersectedTiles } from '../algorithm/VoxTraversal';
 import Utils from '../utils/Utils';
+import loadingGifPath from '../img/loading.gif';
+import eraLogoPath from '../img/era-logo.png';
 import { GEOSPARQL, RDFS, SKOS, ERA } from '../utils/NameSpaces';
 import {
     Container,
@@ -32,6 +33,7 @@ import {
 import {
     ERALogo,
     eraLogoWrapper,
+    infoButton,
     input,
     inputGroup,
     selectStyle,
@@ -79,6 +81,7 @@ class MainLayout extends Component {
             popup: null,
             loading: false,
             showTileFrames: true,
+            helpPage: false,
             tileFrames: new Map(),
             compatibilityVehicleType: null,
             compatibilityVehicle: null,
@@ -555,6 +558,10 @@ class MainLayout extends Component {
         }, () => { this.renderMicroNodes() });
     }
 
+    toggleHelpPage = show => {
+        this.setState({ helpPage: show });
+    }
+
     onDragEnd = map => {
         const center = map.getCenter();
         this.setState({ bounds: map.getBounds(), popup: null });
@@ -579,6 +586,7 @@ class MainLayout extends Component {
             popup,
             loading,
             tileFrames,
+            helpPage,
             showTileFrames,
             vehicleTypes,
             vehicles,
@@ -595,13 +603,15 @@ class MainLayout extends Component {
         return (
             <div className="show-fake-browser sidebar-page">
                 <Container>
+                    <HelpPage show={helpPage} toggleHelpPage={this.toggleHelpPage}></HelpPage>
                     <Sidebar style={sideBar}>
                         <div style={stickyMenu}>
                             <Sidenav.Header>
                                 <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
                                 <div style={sidebarHeader}>
-                                    <Icon icon="logo-analytics" size="lg" style={{ verticalAlign: 0 }} />
                                     <span style={{ marginLeft: 12 }}>Route Compatibility Check</span>
+                                    <Icon icon="info-circle" size="lg" style={infoButton} 
+                                        title="how to use this application" onClick={() => this.toggleHelpPage(true)}/>
                                 </div>
                             </Sidenav.Header>
 

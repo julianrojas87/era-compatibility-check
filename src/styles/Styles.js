@@ -25,6 +25,12 @@ export const eraLogoWrapper = {
     "paddingRight": "10px"
 }
 
+export const infoButton = {
+    "verticalAlign": 0, 
+    "float": "right",
+    "cursor": "pointer"
+}
+
 export const stickyMenu = {
     "position": "sticky",
     "top": 0,

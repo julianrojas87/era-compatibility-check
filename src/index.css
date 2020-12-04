@@ -24,6 +24,7 @@ code {
 .rs-steps-item-description {
     margin-top: 30px;
 }
+
 .rs-steps-item-title {
     font-weight: bold;
 }
@@ -71,4 +72,37 @@ code {
 
 .rs-loader-spin+.rs-loader-content {
     margin-left: -40px;
+}
+
+.rs-modal-body p {
+    font-size: 18px;
+}
+
+.rs-modal-body code {
+    font-size: 16px;
+}
+
+.rs-modal-body h2, h3, h4 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.rs-modal-body blockquote {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: .25em solid #dfe2e5;
+}
+
+.rs-modal-body blockquote p {
+    font-size: 16px;
+}
+
+.rs-modal-body img {
+    max-width: 100%;
+    box-sizing: initial;
+    background-color: #fff;
 }
