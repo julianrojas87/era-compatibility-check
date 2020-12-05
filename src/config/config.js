@@ -8,3 +8,4 @@ export const IMPLEMENTATION_TILES = 'http://era.ilabt.imec.be/ldf/sparql-tiles/i
 export const IMPLEMENTATION_ZOOM = 10;
 //export const FACETED_BASE_URI = 'https://test-linked.ec-dataplatform.eu/describe/?url=';
 export const FACETED_BASE_URI = 'http://era.ilabt.imec.be/resource?uri=';
+export const APP_PATH = '/compatibility-check-demo';

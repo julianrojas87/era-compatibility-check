@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import { Modal } from "rsuite";
 import ReactMarkdown from "react-markdown";
 import content from "../docs/help-page.md";
+import { APP_PATH } from "../config/config";
 
 export class HelpPage extends Component {
     constructor(props) {
@@ -25,14 +26,18 @@ export class HelpPage extends Component {
         const display = t.getAttribute("collapsed") === "true" ? "none" : "block";
         t.setAttribute("collapsed", !(t.getAttribute("collapsed") === "true"));
         t.style.setProperty("--border-width", t.getAttribute("collapsed") === "true" ? "10px 5px 0px 5px" : "5px 0px 5px 10px");
-        t.style.setProperty("--border-color", t.getAttribute("collapsed") === "true" ? "#575757 transparent transparent transparent" 
+        t.style.setProperty("--border-color", t.getAttribute("collapsed") === "true" ? "#575757 transparent transparent transparent"
             : "transparent transparent transparent #575757");
-        
+
         let next = t.nextSibling;
         while (next && !["H3", "H4", "HR"].includes(next.tagName)) {
             next.style.display = display;
             next = next.nextSibling;
         }
+    }
+
+    transformImageUri = uri => {
+        return window.location.hostname.includes("localhost") ? uri : `${APP_PATH}${uri}`
     }
 
     componentDidUpdate(prevProps) {
@@ -51,7 +56,7 @@ export class HelpPage extends Component {
                 <Modal overflow size="lg" show={show} onHide={this.close}>
                     <Modal.Header></Modal.Header>
                     <Modal.Body>
-                        <ReactMarkdown source={content}></ReactMarkdown>
+                        <ReactMarkdown source={content} transformImageUri={uri => this.transformImageUri(uri)}></ReactMarkdown>
                     </Modal.Body>
                 </Modal>
             </div>
