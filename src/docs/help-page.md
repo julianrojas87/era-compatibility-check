@@ -1,4 +1,4 @@
-# Route Compatibility Check - User Guide
+# Route Compatibility Check - Help Page
 
 ---------------
 This is a prototype of the Route Compatibility Check application and service,
@@ -24,7 +24,7 @@ _Tip: select an area which has one or two country borders_
 
 > **OBSERVE**\
 The operational points are loaded for that area.\
-![Step 1](/img/step1.gif)
+![Step 1](img/step1.gif)
 
 > **UNDER THE HOOD**\
 The information about the railway topology is kept in the form of a Knowledge Graph (KG) in a graph data store. In an effort to avoid overloading the data store with too many heavy queries from the application, we take advantage of the fact that the railway topology data is georeferenced and we publish it in tiles through a semantically annotated API (i.e. an API whose responses include [metadata that semantically describe](https://www.hydra-cg.com/spec/latest/core/) how clients can interact with it).
@@ -40,7 +40,7 @@ Select two operational points which are connected to the railway infrastructure.
 
 > **OBSERVE**\
 First you see the calculation of the tiles where possible routes can be found. By default the max number of routes is set to 1. Then the shortest route is calculated and drawn on the map showing all operational points on the route.
-![Step 2](/img/step2.gif)
+![Step 2](img/step2.gif)
 
 > **UNDER THE HOOD**\
 Route planning queries are not something that can be trivially solved on KG data stores. Non-standard [extensions to SPARQL](https://www.stardog.com/blog/a-path-of-our-own/) are needed to deal with such use cases, only available in vendor-specific implementations. For that reason we needed an additional solution capable of performing a shortest-path algorithm over the railway topology data of our KG. Our geospatial tiling approach gives us another very important advantage besides highly cacheable data tiles, and that is access to the complete set of facts (triples in KG terminology) for a certain region which includes the railway topological information.
@@ -54,7 +54,7 @@ Click on the menu `Select a Vehicle Type` and choose a vehicle type.
 
 > **OBSERVE**\
 Now on the route description you see on which tracks of the route the selected vehicle can go and if not why. This way you see the compatibility between the selected vehicle type and the selected route, track by track, parameter by parameter. In the example below, for the first track, the train detection system is compatible but the energy supply system is not. A `no data` value will show when information about a certain parameter is not available. This will render an `UNKNOWN` compatibility result.
-![Step 3](/img/step3.gif)
+![Step 3](img/step3.gif)
 
 > **UNDER THE HOOD**\
 During the route calculation process, the application fetches all the data (KG's triples) associated with every single operational point and track of the found route(s). Thanks to this it is possible to select any vehicle type (whose data were fetched from the start during application loading) and perform a comparison of their characteristics. Since all the data is already present in the application _in-memory_, the comparison process is executed very efficiently and vehicle types can be switched without requiring new data requests to the KG data store.
@@ -66,7 +66,7 @@ Click on the menu `Select a Vehicle` and choose a vehicle.
 
 > **OBSERVE**\
 This step displays the same behavior as the previous one, with the difference of showing additional compatibility parameters that are only available for specific vehicles. In the example below, the “operational restriction” parameter is exclusive of vehicle `238029424542`. When a vehicle is selected, the application will automatically select its associated vehicle type (if this information is available in the KG).
-![Step 4](/img/step4.gif)
+![Step 4](img/step4.gif)
 
 > **UNDER THE HOOD**\
 When the application is loaded, it requests the set of vehicles and vehicle types to the backend API. Since the amount of entities is considerably high (+1600 vehicle types +800,000 vehicles), these data are loaded in a streaming fashion, using [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) to prevent blocking the user interface of the application.
