@@ -1,4 +1,4 @@
-# Route Compatibility Check - Help Page
+# Help Page
 
 ---------------
 This is a prototype of the Route Compatibility Check application and service,
