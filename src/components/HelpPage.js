@@ -37,7 +37,7 @@ export class HelpPage extends Component {
     }
 
     transformImageUri = uri => {
-        return window.location.hostname.includes("localhost") ? uri : `${APP_PATH}${uri}`
+        return window.location.hostname.includes("localhost") ? uri : `${APP_PATH}/${uri}`
     }
 
     componentDidUpdate(prevProps) {
