@@ -26,7 +26,7 @@ export const eraLogoWrapper = {
 }
 
 export const infoButton = {
-    "verticalAlign": 0, 
+    "verticalAlign": 0,
     "float": "right",
     "cursor": "pointer"
 }
@@ -108,29 +108,63 @@ export const input = {
 };
 
 export const selectStyle = {
-    width: '100%', 
+    width: '100%',
     marginTop: '10px'
 }
 
 export const stepStyle = {
-    width: '200px', 
-    display: 'inline-table', 
+    width: '200px',
+    display: 'inline-table',
     verticalAlign: 'top'
 }
 
 export const panelStyle = color => {
     return {
-        border: 'solid', 
+        border: 'solid',
         borderColor: color,
         overflowX: 'auto',
         marginBottom: '10px'
     }
-};
+}
 
 export const cellStyle = {
     borderLeft: '1px solid black',
-    borderRight: '1px solid black', 
+    borderRight: '1px solid black',
     textAlign: 'center'
+}
+
+export const opBaseNodeDiagram = size => {
+    return {
+        width: '37.5vw',
+        height: `${size * 10}vh`,
+        background: 'rgb(87 137 181)',
+        opacity: 0.3,
+        border: '0.07rem solid #8795a1',
+        borderRadius: '2rem',
+        borderShadow: '0 0.07rem 0.2rem 0 rgba(0, 0, 0, 0.1), 0 0.07rem 0.125rem 0 rgba(0, 0, 0, 0.06)'
+    }
+}
+
+export const opNormalNodeDiagram = {
+    background: '#dae1e7',
+    border: '0.07rem solid #8795a1',
+    borderRadius: '0.25rem',
+    borderShadow: '0 0.07rem 0.2rem 0 rgba(0, 0, 0, 0.1), 0 0.07rem 0.125rem 0 rgba(0, 0, 0, 0.06)'
+}
+
+export const opRouteNodeDiagram = color => {
+    return {
+        background: '#dae1e7',
+        border: `0.25rem solid ${color}`,
+        borderRadius: '0.25rem',
+        borderShadow: '0 0.07rem 0.2rem 0 rgba(0, 0, 0, 0.1), 0 0.07rem 0.125rem 0 rgba(0, 0, 0, 0.06)'
+    }
+}
+
+export const nodeLabelStyle = {
+    padding: '0.3rem', 
+    maxWidth: '20vw', 
+    wordBreak: 'break-word'
 }
 
 function getRandomColor() {

@@ -31,6 +31,18 @@ function isValidHttpUrl(string) {
     return url.protocol === "http:" || url.protocol === "https:";
 }
 
+// Returns the amount of pixels for a given relative viewport height
+function vh(v) {
+    var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    return (v * h) / 100;
+}
+
+// Returns the amount of pixels for a given relative viewport width
+function vw(v) {
+    var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    return (v * w) / 100;
+}
+
 function getTileFrame(coords, z, asXY) {
     let tile = null;
     if (asXY) {
@@ -200,6 +212,40 @@ function getMicroNodePorts(store, mn) {
     }
 }
 
+function getAllNodePorts(store, mn) {
+    // Query for all the NodePorts associated to this MicroNode
+    const queryNps = queryGraphStore({
+        store: store,
+        p: ERA.belongsToNode,
+        o: mn
+    });
+
+    // There are disconnected MicroNodes
+    if (queryNps) {
+        return Object.keys(queryNps);
+    }
+}
+
+function getAllInternalNodeLinksFromNodePort(np, store) {
+    const inls = [];
+    const links = queryGraphStore({
+        store,
+        p: ERA.startPort,
+        o: np,
+    });
+
+    for (const inl of Object.keys(links)) {
+        if (isInternalNodeLink(inl, store)) {
+            inls.push({
+                '@id': inl,
+                ...queryGraphStore({ store, s: inl })[inl]
+            });
+        }
+    }
+
+    return inls;
+}
+
 function getMicroNodeFromNodePort(np, store) {
     // Get the associated MicroNode
     const mn = queryGraphStore({
@@ -269,12 +315,39 @@ function isMicroLink(ml, store) {
     return q !== null;
 }
 
+function isInternalNodeLink(inl, store) {
+    const q = queryGraphStore({
+        store: store,
+        s: inl,
+        p: a,
+        o: ERA.InternalNodeLink
+    });
+
+    return q !== null;
+}
+
 function getTrackFromMicroLink(ml, store) {
     return queryGraphStore({
         store: store,
         s: ml,
         p: ERA.hasImplementation
     })[ml][ERA.hasImplementation];
+}
+
+function isNodePortIncoming(np, store) {
+    const inLinks = queryGraphStore({
+        store: store,
+        p: ERA.endPort,
+        o: np
+    });
+
+    for (const l of Object.keys(inLinks)) {
+        if (isMicroLink(l, store)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function deepClone(obj) {
@@ -321,7 +394,7 @@ function checkCompatibility(t, vehicle, store, includesVehicle) {
     const report = {};
     let vehicleType = vehicle;
 
-    if(includesVehicle) {
+    if (includesVehicle) {
         vehicleType = vehicle[ERA.vehicleType];
     }
 
@@ -480,7 +553,7 @@ function checkCompatibility(t, vehicle, store, includesVehicle) {
     }
 
     // Noise restrictions
-    const nrs = track[ERA.isQuietRoute] === 'false' || (track[ERA.isQuietRoute] === 'true' 
+    const nrs = track[ERA.isQuietRoute] === 'false' || (track[ERA.isQuietRoute] === 'true'
         && vehicle[ERA.operationalRestriction] !== 'http://era.europa.eu/concepts/restrictions#2.7.7');
     report[ERA.operationalRestriction] = {
         predicates: [ERA.operationalRestriction, ERA.isQuietRoute],
@@ -517,6 +590,8 @@ export default {
     lat2Tile,
     tile2long,
     tile2lat,
+    vh,
+    vw,
     isValidHttpUrl,
     getTileFrame,
     rebuildQuad,
@@ -526,10 +601,14 @@ export default {
     getAllVehicles,
     getMicroNodeInfo,
     getMicroNodePorts,
+    getAllNodePorts,
+    getAllInternalNodeLinksFromNodePort,
     getMicroNodeFromNodePort,
     getOperationalPointFromMicroNode,
     getNodePortInfo,
     isMicroLink,
+    isInternalNodeLink,
+    isNodePortIncoming,
     getTrackFromMicroLink,
     checkCompatibility,
     deepClone
