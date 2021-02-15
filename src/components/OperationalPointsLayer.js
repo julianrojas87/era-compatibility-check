@@ -1,7 +1,6 @@
-import React, { Component, Fragment } from "react";
+import React, { Component } from "react";
 import { Layer, Feature } from "react-mapbox-gl";
 import Utils from '../utils/Utils';
-import { ERA, OP_TYPES } from "../utils/NameSpaces";
 import { mnIcon } from '../styles/Styles';
 
 export class OperationalPointsLayer extends Component {

@@ -6,6 +6,7 @@ import { OperationalPointsLayer } from './OperationalPointsLayer';
 import { TileFramesLayer } from './TileFramesLayer';
 import { RoutesLayer } from './RoutesLayer';
 import { RoutesInfo } from './RoutesInfo';
+import { OPInternalView } from './OPInternalView';
 import { HelpPage } from './HelpPage';
 import RDFetch from '../workers/RDFetch.worker';
 import { TileFetcherWorkerPool } from '../workers/TileFetcherWorkerPool';
@@ -81,6 +82,7 @@ class MainLayout extends Component {
             popup: null,
             loading: false,
             showTileFrames: true,
+            internalView: false,
             helpPage: false,
             tileFrames: new Map(),
             compatibilityVehicleType: null,
@@ -93,7 +95,10 @@ class MainLayout extends Component {
             routes: [],
             calculatingRoutes: false,
             loaderMessage: null,
-            routeFilter: new Set()
+            routeFilter: new Set(),
+            internalViewNode: null,
+            internalViewPath: null,
+            pathColor: null
         };
         // Web Workers pool for fetching data tiles
         this.tileFetcherPool = new TileFetcherWorkerPool();
@@ -272,10 +277,11 @@ class MainLayout extends Component {
                                 microNode: quad.object.value
                             });
                             this.graphStore.add(quad);
-                        } else {
-                            // Add the rest of the quads to the RDF graph store
-                            this.graphStore.add(quad);
                         }
+
+                        // Add the the quad to the RDF graph store
+                        this.graphStore.add(quad);
+
                     }
 
                     if (e.data.done) {
@@ -554,9 +560,19 @@ class MainLayout extends Component {
             routeFilter: new Set(),
             tileFrames: new Map(),
             showTileFrames: false,
-            calculatingRoutes: false
+            calculatingRoutes: false,
+            loading: false
         }, () => { this.renderMicroNodes() });
     }
+
+    toggleInternalView = (show, mn, route) => {
+        this.setState({
+            internalView: show,
+            internalViewNode: mn,
+            internalViewPath: route? route.path : null,
+            pathColor: route ? route.style['line-color'] : null
+        });
+    };
 
     toggleHelpPage = show => {
         this.setState({ helpPage: show });
@@ -587,6 +603,10 @@ class MainLayout extends Component {
             loading,
             tileFrames,
             helpPage,
+            internalView,
+            internalViewNode,
+            internalViewPath,
+            pathColor,
             showTileFrames,
             vehicleTypes,
             vehicles,
@@ -599,10 +619,18 @@ class MainLayout extends Component {
             compatibilityVehicleType,
             compatibilityVehicle
         } = this.state;
-
+        
         return (
             <div className="show-fake-browser sidebar-page">
                 <Container>
+                    <OPInternalView
+                        show={internalView}
+                        toggleInternalView={this.toggleInternalView}
+                        internalViewNode={internalViewNode}
+                        internalViewPath={internalViewPath}
+                        pathColor={pathColor}
+                        graphStore={this.graphStore}>
+                    </OPInternalView>
                     <HelpPage show={helpPage} toggleHelpPage={this.toggleHelpPage}></HelpPage>
                     <Sidebar style={sideBar}>
                         <div style={stickyMenu}>
@@ -610,8 +638,8 @@ class MainLayout extends Component {
                                 <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
                                 <div style={sidebarHeader}>
                                     <span style={{ marginLeft: 12 }}>Route Compatibility Check</span>
-                                    <Icon icon="info-circle" size="lg" style={infoButton} 
-                                        title="how to use this application" onClick={() => this.toggleHelpPage(true)}/>
+                                    <Icon icon="info-circle" size="lg" style={infoButton}
+                                        title="how to use this application" onClick={() => this.toggleHelpPage(true)} />
                                 </div>
                             </Sidenav.Header>
 
@@ -668,7 +696,8 @@ class MainLayout extends Component {
                             fetchAbstractionTile={this.fetchAbstractionTile}
                             compatibilityVehicleType={compatibilityVehicleType}
                             compatibilityVehicle={compatibilityVehicle}
-                            checkCompatibility={this.checkCompatibility}>
+                            checkCompatibility={this.checkCompatibility}
+                            toggleInternalView={this.toggleInternalView}>
                         </RoutesInfo>
 
                         {calculatingRoutes && (<Loader size={'lg'} speed={'normal'} content={loaderMessage}></Loader>)}

@@ -120,3 +120,25 @@ code {
     box-sizing: initial;
     background-color: #fff;
 }
+
+.rs-modal-lg {
+    width: 75vw;
+}
+
+.route-link {
+    stroke-dasharray: 10, 2 !important;
+    animation: BiDashSegmentAnimation 1s linear infinite
+}
+
+@keyframes BiDashSegmentAnimation {
+    0% {
+        stroke-dashoffset: 24
+    }
+    to {
+        stroke-dashoffset: 0
+    }
+}
+
+.base-node {
+    z-index: 0 !important;
+}

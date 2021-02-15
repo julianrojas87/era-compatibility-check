@@ -22,6 +22,7 @@ export const WGS84 = {
 }
 
 export const ERA = {
+    uopid: 'http://era.europa.eu/ns#uopid',
     opType: 'http://era.europa.eu/ns#opType',
     InternalNodeLink: 'http://era.europa.eu/ns#InternalNodeLink',
     belongsToNode: 'http://era.europa.eu/ns#belongsToNode',
