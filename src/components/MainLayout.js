@@ -619,7 +619,7 @@ class MainLayout extends Component {
             compatibilityVehicleType,
             compatibilityVehicle
         } = this.state;
-
+        
         return (
             <div className="show-fake-browser sidebar-page">
                 <Container>

@@ -234,13 +234,17 @@ function getAllInternalNodeLinksFromNodePort(np, store) {
         o: np,
     });
 
-    for (const inl of Object.keys(links)) {
-        if (isInternalNodeLink(inl, store)) {
-            inls.push({
-                '@id': inl,
-                ...queryGraphStore({ store, s: inl })[inl]
-            });
+    if (links) {
+        for (const inl of Object.keys(links)) {
+            if (isInternalNodeLink(inl, store)) {
+                inls.push({
+                    '@id': inl,
+                    ...queryGraphStore({ store, s: inl })[inl]
+                });
+            }
         }
+
+
     }
 
     return inls;
@@ -341,13 +345,33 @@ function isNodePortIncoming(np, store) {
         o: np
     });
 
-    for (const l of Object.keys(inLinks)) {
-        if (isMicroLink(l, store)) {
-            return true;
+    if (inLinks) {
+        for (const l of Object.keys(inLinks)) {
+            if (isMicroLink(l, store)) {
+                return true;
+            }
         }
     }
 
     return false;
+}
+
+function getMicroLinkFromNodePort(np, store) {
+    const links = queryGraphStore({
+        store: store,
+        o: np
+    });
+
+    if (links) {
+        for (const l of Object.keys(links)) {
+            if (isMicroLink(l, store)) {
+                return queryGraphStore({ 
+                    store: store, 
+                    s: l 
+                })[l]
+            }
+        }
+    }
 }
 
 function deepClone(obj) {
@@ -610,6 +634,7 @@ export default {
     isInternalNodeLink,
     isNodePortIncoming,
     getTrackFromMicroLink,
+    getMicroLinkFromNodePort,
     checkCompatibility,
     deepClone
 };

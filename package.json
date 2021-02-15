@@ -37,7 +37,6 @@
     "@rdfjs/data-model": "^1.1.2",
     "@turf/distance": "^6.0.1",
     "@turf/helpers": "^6.1.4",
-    "beautiful-react-diagrams": "^0.5.1",
     "d3": "^5.16.0",
     "jsonld-streaming-parser": "^2.0.2",
     "mapbox-gl": "^1.11.0",

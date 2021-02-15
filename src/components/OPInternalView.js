@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "rsuite";
+import { Modal, Alert } from "rsuite";
 import { RDFS, ERA } from "../utils/NameSpaces";
 import { FACETED_BASE_URI } from "../config/config";
 import Utils from "../utils/Utils";
-import {
-    opBaseNodeDiagram,
-    nodeLabelStyle,
-    opNormalNodeDiagram,
-    opRouteNodeDiagram
-} from '../styles/Styles';
-
 import { Graph } from "react-d3-graph";
 
 
@@ -30,77 +23,82 @@ export const OPInternalView = ({
         width: Utils.vw(70),
         height: Utils.vh(70),
         directed: true,
-        nodeHighlightBehavior: true,
+        nodeHighlightBehavior: false,
         staticGraph: true,
         node: {
-            color: "lightgreen",
             size: 500,
-            highlightStrokeColor: "blue",
+            color: "#aaaaaa",
             labelProperty: "label"
         },
         link: {
-            highlightColor: "#18ab10",
+            renderLabel: true,
+            markerWidth: 4,
+            markerHeight: 4
         },
     };
+
+    const isRouteLink = inl => {
+        if (inl[ERA.startPort]) {
+            if (internalViewPath.nodes.includes(inl[ERA.startPort]) && internalViewPath.nodes.includes(inl[ERA.endPort])) {
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            if (internalViewPath.nodes.includes(inl.source) && internalViewPath.nodes.includes(inl.target)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    const isNodeClicked = nodeId => {
+        for (const l of schema.links) {
+            if (l.source === nodeId && !isRouteLink(l)) return true;
+        }
+
+        return false;
+    }
 
     const buildSchema = (ivn, ivp) => {
         const inNPs = [];
         const outNPs = [];
-        const links = [];
+        const routeLinks = [];
 
         // Retrieve all node ports for this OP
         const nodePorts = Utils.getAllNodePorts(graphStore, ivn[ERA.hasAbstraction]);
-        let firstRouteNP = null;
-
         for (const np of nodePorts) {
+            const node = {
+                id: np,
+                label: <a href={FACETED_BASE_URI + np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>
+            };
+
             // Check if this is a NodePort of the route
             if (ivp.nodes.includes(np)) {
-                if (firstRouteNP) {
-                    const inNode = {
-                        color: pathColor
-                    }
-                    const outNode = {
-                        color: pathColor
-                    }
-                    if (ivp.nodes.indexOf(np) > ivp.nodes.indexOf(firstRouteNP)) {
-                        // np is the outgoing NodePort
-                        outNode.id = np;
-                        outNode.label = <a href={FACETED_BASE_URI + np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>;
-                        inNode.id = firstRouteNP;
-                        inNode.label = <a href={FACETED_BASE_URI + firstRouteNP} target='_blank'>{firstRouteNP.substring(firstRouteNP.indexOf('#') + 1)}</a>;
-                    } else {
-                        // np in the incoming NodePort
-                        inNode.id = np;
-                        inNode.label = <a href={FACETED_BASE_URI + np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>;
-                        outNode.id = firstRouteNP;
-                        outNode.label = <a href={FACETED_BASE_URI + firstRouteNP} target='_blank'>{firstRouteNP.substring(firstRouteNP.indexOf('#') + 1)}</a>;
-                    }
+                node.color = pathColor;
 
-                    // Add route node ports to proper arrays
-                    inNPs.push(inNode);
-                    outNPs.push(outNode);
-                    // Create special route link
-                    links.push({
-                        source: inNode.id,
-                        target: outNode.id,
+                // Add route link to the diagram
+                const index = ivp.nodes.indexOf(np);
+                const inl = ivp.edges[index];
+
+                if (!Utils.isMicroLink(inl, graphStore)) {
+                    routeLinks.push({
+                        source: ivp.nodes[index],
+                        target: ivp.nodes[index + 1],
+                        label: <a href={FACETED_BASE_URI + inl} target='_blank'>{inl.substring(inl.indexOf('#') + 1)}</a>,
                         color: pathColor,
+                        strokeWidth: 2,
                         type: "CURVE_SMOOTH"
                     });
-                } else {
-                    firstRouteNP = np;
                 }
+            }
+
+            // Check if NodePort is incoming or outgoing
+            if (Utils.isNodePortIncoming(np, graphStore)) {
+                inNPs.push(node);
             } else {
-                const otherNode = {
-                    id: np,
-                    label: <a href={FACETED_BASE_URI + np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>,
-                    color: "#aaaaaa"
-                }
-                // Check if NodePort is incoming or outgoing
-                if (Utils.isNodePortIncoming(np, graphStore)) {
-                    inNPs.push(otherNode);
-                } else {
-                    outNPs.push(otherNode);
-                }
+                outNPs.push(node);
             }
         }
 
@@ -110,15 +108,7 @@ export const OPInternalView = ({
             np.labelPosition = "left";
             np.x = Utils.vw(25);
             np.y = Y;
-            Y += 50;
-
-            for (const inl of Utils.getAllInternalNodeLinksFromNodePort(np.id, graphStore)) {
-                links.push({
-                    source: np.id,
-                    target: inl[ERA.endPort],
-                    type: "CURVE_SMOOTH"
-                });
-            }
+            Y += 70;
         });
 
         Y = 100;
@@ -126,31 +116,81 @@ export const OPInternalView = ({
             np.labelPosition = "right";
             np.x = Utils.vw(45);
             np.y = Y;
-            Y += 50;
+            Y += 70;
         });
 
-        setSchema({ nodes: [...inNPs, ...outNPs], links: [...links] });
+        // Hack to fix the arrow head of the route link.
+        // We have to wrap the state setter in a promise to make sure the DOM is completely rendered
+        // and then proceed to directly manipulate it.
+        Promise.resolve()
+            .then(() => { setSchema({ nodes: [...inNPs, ...outNPs], links: [...routeLinks] }) })
+            .then(() => {
+                // Add Operational Point frame
+                const svgns = "http://www.w3.org/2000/svg";
+                const frame = document.createElementNS(svgns, "rect");
+                frame.setAttribute("x", Utils.vw(25));
+                frame.setAttribute("y", 70);
+                frame.setAttribute("height", Math.max(inNPs.length, outNPs.length) * 70);
+                frame.setAttribute("width", Utils.vw(45) - Utils.vw(25));
+                frame.setAttribute("rx", 20);
+                frame.setAttribute("style", "stroke: #0c3d78; stroke-width: 4; fill: transparent;");
+                const zoomable = document.getElementById("graph-id-graph-container-zoomable");
+                zoomable.insertBefore(frame, zoomable.firstChild);
+
+                // Fix arrow heads
+                routeLinks.forEach(routeLink => {
+                    // Create a new <marker> with the same color of the route link
+                    const marker = document.getElementById("marker-small").cloneNode(true);
+                    marker.setAttribute("id", "marker-route");
+                    marker.setAttribute("fill", pathColor);
+                    document.querySelector("#graph-id-graph-wrapper svg defs").appendChild(marker);
+
+                    // Change route link reference to the new arrow head (<marker>)
+                    const routePath = document.getElementById(`${routeLink.source},${routeLink.target}`);
+                    routePath.setAttribute("marker-end", "url(#marker-route)");
+                    // Add CSS class for dashed animation
+                    routePath.classList.add("route-link");
+                });
+            });
+
     }
 
-    /*const cleanDiagram = () => {
-        schema.nodes.forEach(n => removeNode(n));
-        schema.links = [];
-    }*/
+    const onClickNode = nodeId => {
+        if (isNodeClicked(nodeId)) {
+            // Remove all links starting from this node except for the route link
+            setSchema(prevSchema => {
+                return { nodes: prevSchema.nodes, links: prevSchema.links.filter(l => isRouteLink(l) || l.source !== nodeId) };
+            });
+        } else {
+            // Add all the routes starting from this node
+            const links = [];
+            const inls = Utils.getAllInternalNodeLinksFromNodePort(nodeId, graphStore);
 
-    const onClickNode = function (nodeId) {
-        window.alert(`Clicked node ${nodeId}`);
-    };
-
-    const onClickLink = function (source, target) {
-        window.alert(`Clicked link between ${source} and ${target}`);
-    };
+            if (inls.length > 0) {
+                for (const inl of inls) {
+                    if (!isRouteLink(inl)) {
+                        links.push({
+                            source: nodeId,
+                            target: inl[ERA.endPort],
+                            label: <a href={FACETED_BASE_URI + inl["@id"]} target='_blank'>{inl["@id"].substring(inl["@id"].indexOf('#') + 1)}</a>,
+                            type: "CURVE_SMOOTH"
+                        });
+                    }
+                }
+                setSchema(prevSchema => {
+                    return { nodes: prevSchema.nodes, links: [...prevSchema.links, ...links] };
+                });
+            } else {
+                Alert.warning(`There are no Internal Node Links starting from this Node Port`, 3000);
+            }
+        }
+    }
 
     useEffect(() => {
         setOp(internalViewNode);
         setDisplay(show);
         // New OP has been selected, proceed to build its diagram
         if (internalViewNode) {
-            //cleanDiagram();
             buildSchema(internalViewNode, internalViewPath);
         }
     }, [internalViewNode, show]);
@@ -163,11 +203,10 @@ export const OPInternalView = ({
                 </Modal.Header>
                 <Modal.Body>
                     <Graph
-                        id="graph-id" // id is mandatory
+                        id="graph-id"
                         data={schema}
                         config={schemaConfig}
                         onClickNode={onClickNode}
-                        onClickLink={onClickLink}
                     />
                 </Modal.Body>
             </Modal>

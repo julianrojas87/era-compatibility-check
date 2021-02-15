@@ -125,17 +125,8 @@ code {
     width: 75vw;
 }
 
-.normal-link path {
-    stroke-width: 0.15rem !important;
-    stroke: #aaaaaa !important;
-    animation: none !important;
-    marker-end: url(#triangle);
-}
-
-.route-link path {
-    stroke-width: 0.3rem !important;
-    stroke: #0c3d78 !important;
-    stroke-dasharray: 10, 2;
+.route-link {
+    stroke-dasharray: 10, 2 !important;
     animation: BiDashSegmentAnimation 1s linear infinite
 }
 
