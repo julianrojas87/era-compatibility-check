@@ -412,6 +412,9 @@ class MainLayout extends Component {
     };
 
     fromTo = async feature => {
+        // Data is already being fetched so do nothing in the meantime
+        if(this.state.loading) return false;
+        
         // Start building network graph
         await this.fetchAbstractionTile(feature.lngLat);
         if (!this.from.ports && this.state.to !== feature[RDFS.label]) {
