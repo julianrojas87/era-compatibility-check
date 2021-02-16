@@ -45,7 +45,8 @@ export const OPInternalView = ({
                 return false;
             }
         } else {
-            if (internalViewPath.nodes.includes(inl.source) && internalViewPath.nodes.includes(inl.target)) {
+            if (internalViewPath.nodes.includes(new URL(inl.source).toString()) 
+                && internalViewPath.nodes.includes(new URL(inl.target).toString())) {
                 return true;
             } else {
                 return false;
@@ -70,8 +71,8 @@ export const OPInternalView = ({
         const nodePorts = Utils.getAllNodePorts(graphStore, ivn[ERA.hasAbstraction]);
         for (const np of nodePorts) {
             const node = {
-                id: np,
-                label: <a href={FACETED_BASE_URI + np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>
+                id: decodeURIComponent(np),
+                label: <a href={FACETED_BASE_URI + encodeURIComponent(np)} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>
             };
 
             // Check if this is a NodePort of the route
@@ -84,9 +85,9 @@ export const OPInternalView = ({
 
                 if (!Utils.isMicroLink(inl, graphStore)) {
                     routeLinks.push({
-                        source: ivp.nodes[index],
-                        target: ivp.nodes[index + 1],
-                        label: <a href={FACETED_BASE_URI + inl} target='_blank'>{inl.substring(inl.indexOf('#') + 1)}</a>,
+                        source: decodeURIComponent(ivp.nodes[index]),
+                        target: decodeURIComponent(ivp.nodes[index + 1]),
+                        label: <a href={FACETED_BASE_URI + encodeURIComponent(inl)} target='_blank'>{inl.substring(inl.indexOf('#') + 1)}</a>,
                         color: pathColor,
                         strokeWidth: 2,
                         type: "CURVE_SMOOTH"
@@ -119,7 +120,7 @@ export const OPInternalView = ({
             Y += 70;
         });
 
-        // Hack to fix the arrow head of the route link.
+        // Hack to manipulate the DOM directly.
         // We have to wrap the state setter in a promise to make sure the DOM is completely rendered
         // and then proceed to directly manipulate it.
         Promise.resolve()
@@ -164,15 +165,15 @@ export const OPInternalView = ({
         } else {
             // Add all the routes starting from this node
             const links = [];
-            const inls = Utils.getAllInternalNodeLinksFromNodePort(nodeId, graphStore);
+            const inls = Utils.getAllInternalNodeLinksFromNodePort(new URL(nodeId).toString(), graphStore);
 
             if (inls.length > 0) {
                 for (const inl of inls) {
                     if (!isRouteLink(inl)) {
                         links.push({
-                            source: nodeId,
-                            target: inl[ERA.endPort],
-                            label: <a href={FACETED_BASE_URI + inl["@id"]} target='_blank'>{inl["@id"].substring(inl["@id"].indexOf('#') + 1)}</a>,
+                            source: decodeURIComponent(nodeId),
+                            target: decodeURIComponent(inl[ERA.endPort]),
+                            label: <a href={FACETED_BASE_URI + encodeURIComponent(inl["@id"])} target='_blank'>{inl["@id"].substring(inl["@id"].indexOf('#') + 1)}</a>,
                             type: "CURVE_SMOOTH"
                         });
                     }
