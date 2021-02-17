@@ -235,9 +235,9 @@ class MainLayout extends Component {
         });
     }
 
-    fetchAbstractionTile = (coords, asXY, force) => {
+    fetchAbstractionTile = ({ coords, asXY, zoom, force }) => {
         return new Promise(resolve => {
-            const tileFetcher = this.tileFetcherPool.runTask(ABSTRACTION_TILES, ABSTRACTION_ZOOM, coords, asXY, force);
+            const tileFetcher = this.tileFetcherPool.runTask(ABSTRACTION_TILES, zoom || ABSTRACTION_ZOOM, coords, asXY, force);
             // Draw tile frame on the map
             this.drawTileFrame(coords, ABSTRACTION_ZOOM, asXY);
             if (tileFetcher) {
@@ -413,10 +413,10 @@ class MainLayout extends Component {
 
     fromTo = async feature => {
         // Data is already being fetched so do nothing in the meantime
-        if(this.state.loading) return false;
-        
+        if (this.state.loading) return false;
+
         // Start building network graph
-        await this.fetchAbstractionTile(feature.lngLat);
+        await this.fetchAbstractionTile({ coords: feature.lngLat });
         if (!this.from.ports && this.state.to !== feature[RDFS.label]) {
             // Get the NodePorts of this MicroNode
             const nodePorts = Utils.getMicroNodePorts(this.graphStore, feature['@id']);
@@ -462,7 +462,7 @@ class MainLayout extends Component {
             const intersectedTiles = findIntersectedTiles(this.from.lngLat, this.to.lngLat);
 
             await Promise.all(intersectedTiles.map(async tile => {
-                return this.fetchAbstractionTile(tile, true);
+                return this.fetchAbstractionTile({ coords: tile, asXY: true });
             }));
 
             this.pathFinder = new PathFinder({
@@ -572,7 +572,7 @@ class MainLayout extends Component {
         this.setState({
             internalView: show,
             internalViewNode: mn,
-            internalViewPath: route? route.path : null,
+            internalViewPath: route ? route.path : null,
             pathColor: route ? route.style['line-color'] : null
         });
     };
@@ -622,7 +622,7 @@ class MainLayout extends Component {
             compatibilityVehicleType,
             compatibilityVehicle
         } = this.state;
-        
+
         return (
             <div className="show-fake-browser sidebar-page">
                 <Container>

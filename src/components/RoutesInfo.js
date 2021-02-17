@@ -181,9 +181,13 @@ export class RoutesInfo extends Component {
                                     parseFloat(npDetails[WGS84.longitude]),
                                     parseFloat(npDetails[WGS84.latitude])
                                 ], true),
-                                this.props.fetchAbstractionTile([
-                                    parseFloat(npDetails[WGS84.longitude]),
-                                    parseFloat(npDetails[WGS84.latitude])], false, true)
+                                this.props.fetchAbstractionTile({
+                                    coords: [
+                                        parseFloat(npDetails[WGS84.longitude]),
+                                        parseFloat(npDetails[WGS84.latitude])
+                                    ], 
+                                    force: true
+                                })
                             ]);
                             op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
                         }
