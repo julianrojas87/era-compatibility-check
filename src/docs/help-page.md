@@ -107,4 +107,4 @@ If you click on a clickable parameter value in the columns Track or Vehicle, you
 
 ---------------
 
-Please send you feedback (questions, bugs, comments, recommendation) to [interoperable-data@portal.era.europa.eu](mailto:interoperable-data@portal.era.europa.eu).
+Please send you feedback (questions, bugs, comments, recommendation) to [RinfProjectTeam@era.europa.eu](mailto:RinfProjectTeam@era.europa.eu).
