@@ -19,8 +19,8 @@ self.addEventListener('message', async e => {
             parser = new JsonLdParser();
             // Hack to read HTTP response in a streaming way
             data = JSON.stringify(await res.json(), null, 3).split('\n');
-        } else if (contentType.includes('application/n-quads')) {
-            parser = new StreamParser({ format: 'N-Quads' });
+        } else if (contentType.includes('application/n-triples')) {
+            parser = new StreamParser({ format: 'N-Triples' });
             data = await res.text();
         } else if (contentType.includes('text/turtle')) {
             parser = new StreamParser({ format: 'Turtle' });
