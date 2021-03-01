@@ -100,7 +100,6 @@ export class PathFinder extends EventEmitter {
         // Priority queue
         const queue = new TinyQueue([], (a, b) => { return a.cost - b.cost });
 
-
         // Add all starting NodePorts to the queue
         for (const f of from.ports) {
             queue.push({
@@ -108,16 +107,19 @@ export class PathFinder extends EventEmitter {
                 cost: 0,
                 lngLat: from.lngLat
             });
+            queued.add(f);
         }
 
         // In this variable we will store the found arrival NodePort
         let dest = null;
-        // Step counter to increase the cost of routes with more routes
+        // Keep track of the current MicroNode
+        let currMN = null;
+        // Step counter to increase the cost of routes with more hops
         let step = 0;
 
         while (queue.length) {
-            step++;
             const here = queue.pop();
+            // console.log('STEP: ', step);
             // console.log('HERE: ', here);
             // Arrived at destination
             if (toSet.has(here.from)) {
@@ -131,9 +133,16 @@ export class PathFinder extends EventEmitter {
             // Add micro node to visited list
             explored.add(here.from);
 
-            // Skip If no there are no outgoing edges from this micro node, it means it is a dead end
+            
             const node = NG.nodes.get(here.from);
             // console.log('HERE\'s node: ', node);
+
+            if(node.microNode !== currMN) {
+                // We jumped to another Micro Node
+                currMN = node.microNode;
+                step++;
+            }
+            // Skip If no there are no outgoing edges from this micro node, it means it is a dead end
             if (node.edges.size > 0) {
                 for (const [i, e] of node.edges.entries()) {
                     const edge = NG.edges.get(e);
@@ -147,7 +156,7 @@ export class PathFinder extends EventEmitter {
                     }
 
                     let nextNode = NG.nodes.get(next.from);
-                    // console.log('NEXT node: ', nextNode);
+                    // console.log('NEXT node: ', nextNode, ' via edge: ', edge);
                     // If undefined it means it was deliberately removed to find alternative paths, so skip it
                     if (!nextNode) continue;
 
@@ -173,9 +182,11 @@ export class PathFinder extends EventEmitter {
                     if (pathMap.has(next.from)) {
                         if (pathMap.get(next.from).cost < here.cost) {
                             pathMap.set(next.from, { from: here.from, edge: e, cost: here.cost });
+                            // console.log('PathMap set: ', next.from, e, here.from, here.cost);
                         }
                     } else {
                         pathMap.set(next.from, { from: here.from, edge: e, cost: here.cost });
+                        // console.log('PathMap set: ', next.from, e, here.from, here.cost);
                     }
 
                     // Add to the queue
@@ -191,6 +202,7 @@ export class PathFinder extends EventEmitter {
 
         if (dest) {
             // Rebuild path
+            // console.log(pathMap);
             const path = { nodes: [dest], edges: [] };
             let node = pathMap.get(dest);
 
@@ -230,7 +242,7 @@ export class PathFinder extends EventEmitter {
         if (npt) {
             const lat = parseFloat(npt[np][WGS84.latitude]);
             const long = parseFloat(npt[np][WGS84.longitude]);
-            await this.props.fetchAbstractionTile([long, lat], false, force);
+            await this.props.fetchAbstractionTile({ coords: [long, lat], force: force });
         }
     }
 

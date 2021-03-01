@@ -26,7 +26,7 @@ export const eraLogoWrapper = {
 }
 
 export const infoButton = {
-    "verticalAlign": 0, 
+    "verticalAlign": 0,
     "float": "right",
     "cursor": "pointer"
 }
@@ -108,28 +108,28 @@ export const input = {
 };
 
 export const selectStyle = {
-    width: '100%', 
+    width: '100%',
     marginTop: '10px'
 }
 
 export const stepStyle = {
-    width: '200px', 
-    display: 'inline-table', 
+    width: '200px',
+    display: 'inline-table',
     verticalAlign: 'top'
 }
 
 export const panelStyle = color => {
     return {
-        border: 'solid', 
+        border: 'solid',
         borderColor: color,
         overflowX: 'auto',
         marginBottom: '10px'
     }
-};
+}
 
 export const cellStyle = {
     borderLeft: '1px solid black',
-    borderRight: '1px solid black', 
+    borderRight: '1px solid black',
     textAlign: 'center'
 }
 

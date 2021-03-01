@@ -1,5 +1,5 @@
 import React, { Component, Fragment } from "react";
-import { Panel, Steps, Loader } from 'rsuite';
+import { Panel, Steps, Loader, Button } from 'rsuite';
 import Utils from "../utils/Utils";
 import { ERA, RDFS, SKOS, WGS84 } from '../utils/NameSpaces';
 import { stepStyle, panelStyle, cellStyle } from '../styles/Styles';
@@ -37,13 +37,19 @@ export class RoutesInfo extends Component {
         }
     }
 
-    getOperationalPointTitle = op => {
+    getOperationalPointTitle = (op, internal, route) => {
         return (
-            <a
-                href={`${FACETED_BASE_URI}${encodeURIComponent(op['@id'])}`}
-                target={'_blank'}
-                style={{ color: '#000' }}
-            >{`${op[RDFS.label]} (${op[ERA.opType][SKOS.prefLabel]})`}</a>
+            <span>
+                <a
+                    href={`${FACETED_BASE_URI}${encodeURIComponent(op['@id'])}`}
+                    target={'_blank'}
+                    style={{ color: '#000' }}
+                >{`${op[RDFS.label]} (${op[ERA.opType][SKOS.prefLabel]})`}</a>
+                {internal && (
+                    <Button style={{ marginLeft: '5px' }} size="xs" appearance="ghost"
+                        onClick={() => { this.props.toggleInternalView(true, op, route) }}>See internal connectivity</Button>
+                )}
+            </span>
         );
     }
 
@@ -93,11 +99,15 @@ export class RoutesInfo extends Component {
 
     getTrackDescription = (desc, reps) => {
         if (!reps) {
-            return (<span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span>);
+            return (
+                <span>
+                    <span style={{ fontWeight: 'bold' }}>Track:</span>
+                    <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}> {this.getLabel(desc, RDFS.label)}</a>
+                </span>);
         } else {
             return (
                 <div>
-                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}>{desc}</a></span><br />
+                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}> {this.getLabel(desc, RDFS.label)}</a></span><br />
                     <span><span style={{ fontWeight: 'bold' }}>Vehicle Type:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicleType)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicleType, ERA.typeVersionNumber)}</a></span><br />
                     <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, ERA.vehicleNumber)}</a></span>
                     <table style={{ width: '100%', marginTop: '5px' }}>
@@ -118,7 +128,7 @@ export class RoutesInfo extends Component {
                                             {reps[rep].predicates.map((p, i) => {
                                                 return (
                                                     <span key={i} style={{ float: 'left', clear: 'left' }}>
-                                                        - <a href={`${FACETED_BASE_URI}${encodeURIComponent(p)}`} target={'_blank'}>{this.getLabel(p, RDFS.label)}</a>
+                                                        — <a href={`${FACETED_BASE_URI}${encodeURIComponent(p)}`} target={'_blank'}>{this.getLabel(p, RDFS.label)}</a>
                                                     </span>
                                                 );
                                             })}
@@ -171,9 +181,13 @@ export class RoutesInfo extends Component {
                                     parseFloat(npDetails[WGS84.longitude]),
                                     parseFloat(npDetails[WGS84.latitude])
                                 ], true),
-                                this.props.fetchAbstractionTile([
-                                    parseFloat(npDetails[WGS84.longitude]),
-                                    parseFloat(npDetails[WGS84.latitude])], false, true)
+                                this.props.fetchAbstractionTile({
+                                    coords: [
+                                        parseFloat(npDetails[WGS84.longitude]),
+                                        parseFloat(npDetails[WGS84.latitude])
+                                    ], 
+                                    force: true
+                                })
                             ]);
                             op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
                         }
@@ -207,7 +221,7 @@ export class RoutesInfo extends Component {
                                 <Steps.Item
                                     key={`step-${steps[key][RDFS.label]}`}
                                     status={'process'}
-                                    title={this.getOperationalPointTitle(steps[key])}
+                                    title={this.getOperationalPointTitle(steps[key], i > 0 && i < Object.keys(steps).length - 1, r)}
                                     description={i < Object.keys(steps).length - 1 ? this.getTrackDescription(tracks[i], report[i]) : null}>
                                 </Steps.Item>
                             ))}
