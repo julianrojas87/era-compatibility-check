@@ -295,11 +295,9 @@ class MainLayout extends Component {
                         this.toggleLoading(false);
                     }
 
-                    process.nextTick(() => {
-                        tileFetcher.removeEventListener('data', ondata);
-                        tileFetcher.removeEventListener('done', ondone);
-                        resolve();
-                    });
+                    tileFetcher.removeEventListener('data', ondata);
+                    tileFetcher.removeEventListener('done', ondone);
+                    resolve();
                 }
 
                 tileFetcher.addEventListener('data', ondata);
