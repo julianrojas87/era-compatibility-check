@@ -240,8 +240,8 @@ export class PathFinder extends EventEmitter {
         });
 
         if (npt) {
-            const lat = parseFloat(npt[np][WGS84.latitude]);
-            const long = parseFloat(npt[np][WGS84.longitude]);
+            const lat = parseFloat(npt[np][WGS84.lat]);
+            const long = parseFloat(npt[np][WGS84.long]);
             await this.props.fetchAbstractionTile({ coords: [long, lat], force: force });
         }
     }

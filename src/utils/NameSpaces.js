@@ -16,8 +16,8 @@ export const GEOSPARQL = {
 }
 
 export const WGS84 = {
-    latitude: 'http://www.w3.org/2003/01/geo/wgs84_pos#latitude',
-    longitude: 'http://www.w3.org/2003/01/geo/wgs84_pos#longitude',
+    lat: 'http://www.w3.org/2003/01/geo/wgs84_pos#lat',
+    long: 'http://www.w3.org/2003/01/geo/wgs84_pos#long',
     location: 'http://www.w3.org/2003/01/geo/wgs84_pos#location'
 }
 
