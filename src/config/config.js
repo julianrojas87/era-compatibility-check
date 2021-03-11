@@ -1,11 +1,15 @@
 
-export const ERA_VOCABULARY = 'http://era.ilabt.imec.be/ldf/vocabulary';
-export const ERA_VEHICLE_TYPES = 'http://era.ilabt.imec.be/ldf/vehicle-types';
-export const ERA_VEHICLES = 'http://era.ilabt.imec.be/ldf/vehicles';
-export const ABSTRACTION_TILES = 'http://era.ilabt.imec.be/ldf/sparql-tiles/abstraction';
-export const ABSTRACTION_ZOOM = 10;
-export const IMPLEMENTATION_TILES = 'http://era.ilabt.imec.be/ldf/sparql-tiles/implementation';
-export const IMPLEMENTATION_ZOOM = 10;
-//export const FACETED_BASE_URI = 'https://test-linked.ec-dataplatform.eu/describe/?url=';
-export const FACETED_BASE_URI = 'http://era.ilabt.imec.be/resource?uri=';
+const ERA_GEO_API = '${ERA_GEO_API}';
+const ZOOM = '${ZOOM}';
+export const FACETED_BASE_URI = '${FACETED_BASE_URI}'
+//export const FACETED_BASE_URI = 'https://linked.ec-dataplatform.eu/describe/?url='; for Virtuoso
+//export const FACETED_BASE_URI = 'http://era.ilabt.imec.be/resource?uri='; for GraphDB
+
 export const APP_PATH = '/compatibility-check-demo';
+export const ERA_VOCABULARY = ERA_GEO_API + '/vocabulary';
+export const ERA_VEHICLE_TYPES = ERA_GEO_API + '/vehicle-types';
+export const ERA_VEHICLES = ERA_GEO_API + '/vehicles';
+export const ABSTRACTION_TILES = ERA_GEO_API + '/sparql-tiles/abstraction';
+export const IMPLEMENTATION_TILES = ERA_GEO_API + '/sparql-tiles/implementation';
+export const ABSTRACTION_ZOOM = ZOOM;
+export const IMPLEMENTATION_ZOOM = ZOOM;
