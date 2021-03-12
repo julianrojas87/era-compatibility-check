@@ -89,13 +89,13 @@ Select a vehicle or vehicle type first and then proceed to calculate a route. Th
 
 #### Explore the ERA Knowledge Graph
 
-You have probably noticed that many of the items in the comparison table of each track are clickable. These are not just links to pages but links to the edges and nodes of the KG. Edges are in the column `Properties`. The properties link in a meaningful way a node, such as a track, to another node. This other node can be a value, for example:
+You have probably noticed that many of the items in the comparison table of each track are _clickable_. These are not just links to pages but links to the edges and nodes of the KG. Edges are in the column `Properties`. The properties link in a meaningful way a node, such as a track, to another node. This other node can be a value, for example:
 
-> [`T_81527_358_81534`](http://era.ilabt.imec.be/resource?uri=http%3A%2F%2Fera.europa.eu%2Fimplementation%23T_81527_358_81534) - [`maximum temperature`](http://era.ilabt.imec.be/resource?uri=http%3A%2F%2Fera.europa.eu%2Fns%23maximumTemperature) -> `40`
+> [`T_ATBm_1_ATUe`](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fimplementation%23T_ATBm_1_ATUe) - [`maximum temperature`](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fns%23maximumTemperature) -> `40`
 
-Or another node identified with a URI, for example:
+Or to another node identified with a URI, for example:
 
-> [`T_81527_358_81534`](http://era.ilabt.imec.be/resource?uri=http%3A%2F%2Fera.europa.eu%2Fimplementation%23T_81527_358_81534) - [`train detection system`](http://era.ilabt.imec.be/resource?uri=http%3A%2F%2Fera.europa.eu%2Fns%23trainDetectionSystem) -> [`track circuit`](http://era.ilabt.imec.be/resource?uri=http%3A%2F%2Fera.europa.eu%2Fconcepts%2Ftrain-detection%23track_circuit).
+> [`T_ATBm_1_ATUe`](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fimplementation%23T_ATBm_1_ATUe) - [`train detection system`](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fns%23trainDetectionSystem) -> [`track circuit`](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fconcepts%2Ftrain-detection%23track_circuit).
 
 Each property has meaning defined by the [ERA vocabulary](http://era.ilabt.imec.be/era-vocabulary/index-en.html). With them, both humans and machines can _understand_ that a node is of a specific type (e.g., track, operational point, or vehicle type) or the meaning of a statement such as the examples above.
 
