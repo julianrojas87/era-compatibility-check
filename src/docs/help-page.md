@@ -47,26 +47,38 @@ Route planning queries are not something that can be trivially solved on KG data
 \
 This enables our application to perform any kind of processing on the data, such as a graph shortest-path algorithm. In this case, we perform an [A* algorithm](https://en.wikipedia.org/wiki/A*_search_algorithm) that progressively downloads data tiles containing the railway topology data from the KG that it needs to find routes between two selected operational points. When the maximum number of routes is selected to be more than 1, the application performs [Yen's algorithm](https://en.wikipedia.org/wiki/Yen%27s_algorithm) for finding the top-k shortest paths in a graph.
 
-#### Step 3: Select a vehicle type
+#### Step 3: Check the route's _internal connectivity_ inside operational points
+
+> **DO**\
+After a route is calculated, click on the `See internal connectivity` option next to the operational points that conform the route to see how this route goes through them.
+
+> **OBSERVE**\
+Here you can see highlighted the specific [node ports](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fns%23NodePort) and [internal node link](https://linked.ec-dataplatform.eu/describe/?url=http%3A%2F%2Fera.europa.eu%2Fns%23InternalNodeLink) that were calculated as part of the route. You may also click on the other node ports to see how they connect to each other inside the operational point.
+![Step 3](img/step3.gif)
+
+> **UNDER THE HOOD**\
+Node ports represent the operational point borders and the point where tracks start or end. To represent the changes of direction that are possible inside operational points, internal node links are defined between the different node ports that belong to a operational point. The route planning algorithm takes into account these internal connections for calculating possible routes.
+
+#### Step 4: Select a vehicle type
 
 > **DO**\
 Click on the menu `Select a Vehicle Type` and choose a vehicle type.
 
 > **OBSERVE**\
 Now on the route description you see on which tracks of the route the selected vehicle can go and if not why. This way you see the compatibility between the selected vehicle type and the selected route, track by track, parameter by parameter. In the example below, for the first track, the train detection system is compatible but the energy supply system is not. A `no data` value will show when information about a certain parameter is not available. This will render an `UNKNOWN` compatibility result.
-![Step 3](img/step3.gif)
+![Step 4](img/step4.gif)
 
 > **UNDER THE HOOD**\
 During the route calculation process, the application fetches all the data (KG's triples) associated with every single operational point and track of the found route(s). Thanks to this it is possible to select any vehicle type (whose data were fetched from the start during application loading) and perform a comparison of their characteristics. Since all the data is already present in the application _in-memory_, the comparison process is executed very efficiently and vehicle types can be switched without requiring new data requests to the KG data store.
 
-#### Step 4: Select a vehicle
+#### Step 5: Select a vehicle
 
 > **DO**\
 Click on the menu `Select a Vehicle` and choose a vehicle.
 
 > **OBSERVE**\
 This step displays the same behavior as the previous one, with the difference of showing additional compatibility parameters that are only available for specific vehicles. In the example below, the “operational restriction” parameter is exclusive of vehicle `238029424542`. When a vehicle is selected, the application will automatically select its associated vehicle type (if this information is available in the KG).
-![Step 4](img/step4.gif)
+![Step 5](img/step5.gif)
 
 > **UNDER THE HOOD**\
 When the application is loaded, it requests the set of vehicles and vehicle types to the backend API. Since the amount of entities is considerably high (+1600 vehicle types +800,000 vehicles), these data are loaded in a streaming fashion, using [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) to prevent blocking the user interface of the application.
