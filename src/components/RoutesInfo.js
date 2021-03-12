@@ -169,8 +169,8 @@ export class RoutesInfo extends Component {
                         // Implementation tile for this OP hasn't been fetched yet
                         const npDetails = Utils.getNodePortInfo(np, this.props.graphStore);
                         await this.props.fetchImplementationTile([
-                            parseFloat(npDetails[WGS84.longitude]),
-                            parseFloat(npDetails[WGS84.latitude])
+                            parseFloat(npDetails[WGS84.long]),
+                            parseFloat(npDetails[WGS84.lat])
                         ]);
                         op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
 
@@ -178,13 +178,13 @@ export class RoutesInfo extends Component {
                         if (!op) {
                             await Promise.all([
                                 this.props.fetchImplementationTile([
-                                    parseFloat(npDetails[WGS84.longitude]),
-                                    parseFloat(npDetails[WGS84.latitude])
+                                    parseFloat(npDetails[WGS84.long]),
+                                    parseFloat(npDetails[WGS84.lat])
                                 ], true),
                                 this.props.fetchAbstractionTile({
                                     coords: [
-                                        parseFloat(npDetails[WGS84.longitude]),
-                                        parseFloat(npDetails[WGS84.latitude])
+                                        parseFloat(npDetails[WGS84.long]),
+                                        parseFloat(npDetails[WGS84.lat])
                                     ], 
                                     force: true
                                 })
