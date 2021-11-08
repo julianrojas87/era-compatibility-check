@@ -156,7 +156,7 @@ async function getAllOperationalPoints(store) {
         store,
         p: RDFS.label
     });
-
+    
     if (ops) {
         return await Promise.all(Object.keys(ops).map(async op => {
             const opp = queryGraphStore({

@@ -201,7 +201,7 @@ class MainLayout extends Component {
             if (e.data === 'done') {
                 rdfetcht.terminate();
                 this.setState({ fetchingOPs: false });
-                this.setOPPickers(tempGraphStore, true);
+                this.setOPPickers(tempGraphStore);
             } else {
                 const q = Utils.rebuildQuad(e.data);
 
@@ -476,14 +476,13 @@ class MainLayout extends Component {
         this.setState({ popup: null });
     }
 
-    setOPPickers = async (opgs, sort) => {
+    setOPPickers = async opgs => {
         const ops = await Utils.getAllOperationalPoints(opgs);
         if (ops) {
             this.setState(state => {
-                if (sort) {
-                    return { operationalPoints: [...state.operationalPoints, ...ops].sort((a, b) => a.label.localeCompare(b.label)) }
+                return { 
+                    operationalPoints: [...state.operationalPoints, ...ops].sort((a, b) => a.label.localeCompare(b.label)) 
                 }
-                return { operationalPoints: [...state.operationalPoints, ...ops] }
             });
         }
     }

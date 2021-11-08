@@ -50,7 +50,7 @@ export class OperationalPointsLayer extends Component {
             // Hardcoded proxy to fetch resources without proper CORS headers
             // as is the case for the EU country data.
             // TODO: Move the proxy to a config parameter
-            rdfetcht.postMessage({ url: `http://proxy.linkeddatafragments.org/${countryURI}` });
+            rdfetcht.postMessage({ url: `https://proxy.linkeddatafragments.org/${countryURI}` });
         });
     };
 
