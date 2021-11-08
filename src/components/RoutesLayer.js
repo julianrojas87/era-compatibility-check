@@ -1,8 +1,6 @@
 import React, { Component, Fragment } from "react";
 import { Layer, Feature } from "react-mapbox-gl";
-import { parse as wktParse } from 'wellknown';
 import Utils from "../utils/Utils";
-import { GEOSPARQL } from "../utils/NameSpaces";
 import { routeStyle } from "../styles/Styles";
 
 export class RoutesLayer extends Component {
@@ -20,15 +18,11 @@ export class RoutesLayer extends Component {
         let linePath = [];
 
         for (const stop of route.path.nodes) {
-            const np = Utils.queryGraphStore({
-                store: this.props.graphStore,
-                s: stop
-            });
-            const wkt = Array.isArray(np[stop][GEOSPARQL.asWKT]) ? np[stop][GEOSPARQL.asWKT][0] : np[stop][GEOSPARQL.asWKT];
-            const coords = wktParse(wkt).coordinates;
-            linePath.push(coords);
-            if (route.renderNodes) {
-                this.routeFilter.add(coords.join('_'));
+            if(stop.lngLat) {
+                linePath.push(stop.lngLat);
+                if (route.renderNodes) {
+                    this.routeFilter.add(stop.lngLat.join('_'));
+                }
             }
         }
         return linePath;

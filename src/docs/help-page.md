@@ -1,15 +1,14 @@
 # Help Page
 
 ---------------
-This is a prototype of the Route Compatibility Check application and service,
+This is the Route Compatibility Check application and service,
 working on the Knowledge Graph (KG) of the [EU Agency for Railways (ERA)](https://www.era.europa.eu).
 The _ERA KG_ is created out of independently maintained datasets.
 
-The objective is to check if a certain railway vehicle (read as a locomotive unit, passenger car, wagon, etc) or authorized type of vehicle, can travel the route from _operational point A_ to _operational point B_. Each route is composed of sections of lines (tracks) with different technical parameters. Each track is between two operations points. The small icons that appear on the map show the location of the operational points and details about them when you hover over them.
+The objective is to check if a certain railway vehicle (read as a locomotive unit, passenger car, wagon, etc) of an authorized type of vehicle, can travel the route from _operational point A_ to _operational point B_. Each route is composed of sections of lines (tracks) with different technical parameters. Each track is between two operations points. The small icons that appear on the map show the location of the operational points and details about them when you hover over them.
 
-Vehicles are presented using the unique vehicle number defined in the European Centralised Virtual Vehicle Register ([ECVVR](https://www.era.europa.eu/registers_en#ecvvr)) and vehicle type information is originated from the European Registry Authorized Type of Vehicle ([ERATV](https://eratv.era.europa.eu/)) and shown with their particular code and name (e.g., `11-001-0003-9-001 - Euro 4000 Tristandard`).
+Vehicle type information is originated from the European Registry Authorized Type of Vehicle ([ERATV](https://eratv.era.europa.eu/)) and shown with their particular Type ID and name (e.g., `11-001-0003-9-001 - Euro 4000 Tristandard`).
 
-Source code of this application is available at this [GitHub repository](https://github.com/julianrojas87/era-compatibility-check).
 
 ### Main Workflow
 
@@ -37,6 +36,8 @@ However, this SPARQL query is not limited to retrieve only data about operationa
 
 > **DO**\
 Select two operational points which are connected to the railway infrastructure. Once the shortest route is calculated, expand it to see all operation points and tracks between them.
+or 
+Start typing in the fields "From:" and "To:" to select the starting and ending point of the desired route. The list of Operational points are displayed bellow the field and they are filtered according to what you have typed. 
 
 > **OBSERVE**\
 First you see the calculation of the tiles where possible routes can be found. By default the max number of routes is set to 1. Then the shortest route is calculated and drawn on the map showing all operational points on the route.

@@ -1,13 +1,13 @@
 import styled from 'styled-components';
-import mnIconPath from '../img/junction-icon.svg';
+import mnIconPath from '../img/blue-dot.png';
 
 export const mapStyle = {
-    height: "90vh",
-    width: "68vw"
+    width: "75vw",
+    height: "86vh"
 }
 
 // Operational point icons
-const mnIcon = new Image(20, 20);
+const mnIcon = new Image(15, 15);
 mnIcon.src = mnIconPath;
 
 export {
@@ -15,8 +15,8 @@ export {
 };
 
 export const ERALogo = styled.img`
-    width: 115px;
-    height: 70px;
+    width: auto;
+    height: 100%;
     z-index: 9000;
 `;
 
@@ -71,7 +71,7 @@ export const LoadingGIF = styled.img`
     width: 50px;
     height: 50px;
     position: absolute;
-    top: 0px;
+    top: 75px;
     right: 0px;
     z-index: 9000;
 `;
@@ -80,7 +80,7 @@ export const sideBar = {
     flexDirection: 'column',
     flexBasis: 530,
     overflowY: 'auto',
-    height: "96.5vh"
+    height: "85vh"
 };
 
 export const sidebarHeader = {
@@ -93,18 +93,9 @@ export const sidebarHeader = {
     overflow: 'hidden'
 };
 
-export const inputGroup = {
-    width: '100%',
-    marginBottom: 10,
-    marginTop: 10
-};
-
-export const input = {
-    fontSize: 16,
-    paddingLeft: 70,
-    paddingTop: 9,
-    color: '#094b8d',
-    cursor: 'text'
+export const inputStyle = {
+    fontSize: '22px', 
+    marginTop: '10px'
 };
 
 export const selectStyle = {
@@ -127,10 +118,16 @@ export const panelStyle = color => {
     }
 }
 
-export const cellStyle = {
+export const tableHeaderStyle = {
     borderLeft: '1px solid black',
     borderRight: '1px solid black',
-    textAlign: 'center'
+    borderTop: '1px solid black',
+    borderBottom: '1px solid black'
+}
+
+export const cellStyle = {
+    borderLeft: '1px solid black',
+    borderRight: '1px solid black'
 }
 
 function getRandomColor() {
@@ -141,3 +138,8 @@ function getRandomColor() {
     }
     return color;
 }
+
+export const RoutesPermalinkContainer = styled.div`
+    display: flex;
+    justify-content: space-around;
+`;

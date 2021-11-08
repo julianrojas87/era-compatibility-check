@@ -1,7 +1,7 @@
-const HtmlWebPackPlugin = require("html-webpack-plugin");
-const CopyPlugin = require("copy-webpack-plugin");
+import HtmlWebPackPlugin from "html-webpack-plugin";
+import CopyPlugin from "copy-webpack-plugin";
 
-module.exports = {
+export default {
     module: {
         rules: [
             {
@@ -46,7 +46,7 @@ module.exports = {
     plugins: [
         new CopyPlugin({
             patterns: [
-                { from:"src/docs/img", to: "img"}
+                { from: "src/docs/img", to: "img" }
             ]
         }),
         new HtmlWebPackPlugin({
@@ -58,5 +58,8 @@ module.exports = {
     output: {
         globalObject: "this",
         libraryTarget: "this"
+    },
+    devServer: {
+        historyApiFallback: true,
     }
 };

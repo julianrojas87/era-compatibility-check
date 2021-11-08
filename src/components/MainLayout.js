@@ -1,11 +1,14 @@
 import React, { Component } from "react";
 import ReactMapboxGl, { Popup, ZoomControl } from "react-mapbox-gl";
+import queryString from 'query-string';
 import { parse as wktParse } from 'wellknown';
 import GraphStore from '@graphy/memory.dataset.fast';
 import { OperationalPointsLayer } from './OperationalPointsLayer';
 import { TileFramesLayer } from './TileFramesLayer';
 import { RoutesLayer } from './RoutesLayer';
 import { RoutesInfo } from './RoutesInfo';
+import { RoutesExport } from './RoutesExport';
+import { RoutesPermalink } from './RoutesPermalink';
 import { OPInternalView } from './OPInternalView';
 import { HelpPage } from './HelpPage';
 import RDFetch from '../workers/RDFetch.worker';
@@ -13,30 +16,27 @@ import { TileFetcherWorkerPool } from '../workers/TileFetcherWorkerPool';
 import { NetworkGraph } from '../algorithm/NetworkGraph';
 import { PathFinder } from '../algorithm/PathFinder';
 import { findIntersectedTiles } from '../algorithm/VoxTraversal';
+import { verifyCompatibility } from '../algorithm/Compatibility';
 import Utils from '../utils/Utils';
 import loadingGifPath from '../img/loading.gif';
-import eraLogoPath from '../img/era-logo.png';
-import { GEOSPARQL, RDFS, SKOS, ERA } from '../utils/NameSpaces';
+import { GEOSPARQL, RDFS, SKOS, ERA, a, WGS84 } from '../utils/NameSpaces';
+import { getPhrase } from "../utils/Languages";
 import {
     Container,
     Sidebar,
     Sidenav,
-    Input,
     InputNumber,
-    InputGroup,
     SelectPicker,
     Content,
     Icon,
+    IconButton,
     Alert,
     Divider,
     Loader
 } from "rsuite";
 import {
-    ERALogo,
-    eraLogoWrapper,
     infoButton,
-    input,
-    inputGroup,
+    inputStyle,
     selectStyle,
     sideBar,
     sidebarHeader,
@@ -47,9 +47,10 @@ import {
     randomRouteStyle
 } from '../styles/Styles';
 import {
-    ERA_VOCABULARY,
+    ERA_ONTOLOGY,
+    ERA_TYPES,
+    ERA_OPERATIONAL_POINTS,
     ERA_VEHICLE_TYPES,
-    ERA_VEHICLES,
     IMPLEMENTATION_TILES,
     ABSTRACTION_TILES,
     IMPLEMENTATION_ZOOM,
@@ -78,7 +79,7 @@ class MainLayout extends Component {
                 padding: { top: 70, bottom: 70, right: 70, left: 70 }
             },
             bounds: null,
-            microNodes: {},
+            displayOPs: {},
             popup: null,
             loading: false,
             showTileFrames: true,
@@ -86,9 +87,10 @@ class MainLayout extends Component {
             helpPage: false,
             tileFrames: new Map(),
             compatibilityVehicleType: null,
-            compatibilityVehicle: null,
+            operationalPoints: [],
+            fetchingOPs: true,
             vehiclesTypes: [],
-            vehicles: [],
+            fetchingVTs: true,
             from: '',
             to: '',
             maxRoutes: 1,
@@ -98,7 +100,8 @@ class MainLayout extends Component {
             routeFilter: new Set(),
             internalViewNode: null,
             internalViewPath: null,
-            pathColor: null
+            pathColor: null,
+            language: "en"
         };
         // Web Workers pool for fetching data tiles
         this.tileFetcherPool = new TileFetcherWorkerPool();
@@ -109,42 +112,127 @@ class MainLayout extends Component {
         // Route calculator object
         this.pathFinder = null;
 
-        this.allMicroNodes = {};
+        this.allOPLocations = {};
         this.from = {};
         this.to = {};
 
         this.fetchVocabulary();
+        this.fetchTypes();
+        this.fetchOperationalPoints();
         this.fetchVehicleTypes();
-        this.fetchVehicles()
     }
 
     componentDidMount() {
-        this.fetchImplementationTile(this.state.center);
+        this.loadPermalinkInfo();
     }
 
-    fetchVocabulary() {
+    componentDidUpdate() {
+        const { language } = this.state;
+        const storedLanguage = window.localStorage.getItem("language") || "en";
+
+        if (language !== storedLanguage) {
+            this.setState({ language: storedLanguage });
+        }
+    }
+
+    loadPermalinkInfo = async () => {
+        const { fromId, fromLat, fromLng, toId, toLat,
+            toLng, maxRoutes, compatibilityVehicleType } = queryString.parse(this.props.location.search);
+
+        this.setState({
+            maxRoutes: maxRoutes || 1,
+            compatibilityVehicleType: compatibilityVehicleType || null
+        });
+
+        if (fromId && fromLat && fromLng && toId && toLat && toLng) {
+            try {
+                // Fetch from and to tiles
+                await Promise.all([
+                    this.fetchTileSet([parseFloat(fromLng), parseFloat(fromLat)]),
+                    this.fetchTileSet([parseFloat(toLng), parseFloat(toLat)])
+                ])
+
+                // Set from and to OPs
+                this.setState({ from: fromId, to: toId }, () => {
+                    // Call route calculation function
+                    this.fromTo();
+                });
+            } catch (e) {
+                console.error(e);
+                Alert.error(getPhrase('wrongPermalink', this.state.language), 5000);
+            }
+        } else {
+            this.fetchImplementationTile({ coords: this.state.center, zoom: 10 });
+        }
+    }
+
+    fetchVocabulary = () => {
         const rdfetcht = new RDFetch();
-        rdfetcht.addEventListener('message', e => {
-            if (e.data === 'done') {
+        rdfetcht.addEventListener("message", (e) => {
+            if (e.data === "done") {
+                rdfetcht.terminate();
+                this.setState({ justFetchedVocabulary: true });
+            } else {
+                this.graphStore.add(Utils.rebuildQuad(e.data));
+            }
+        });
+        rdfetcht.postMessage({ url: ERA_ONTOLOGY });
+    };
+
+    fetchTypes = () => {
+        const rdfetcht = new RDFetch();
+        rdfetcht.addEventListener("message", (e) => {
+            if (e.data === "done") {
                 rdfetcht.terminate();
             } else {
                 this.graphStore.add(Utils.rebuildQuad(e.data));
             }
         });
+        rdfetcht.postMessage({ url: ERA_TYPES });
+    };
+
+    fetchOperationalPoints() {
+        const rdfetcht = new RDFetch();
+        let count = 0;
+        let currentSubject = null;
+        let tempGraphStore = GraphStore();
+
+        rdfetcht.addEventListener('message', e => {
+            if (e.data === 'done') {
+                rdfetcht.terminate();
+                this.setState({ fetchingOPs: false });
+                this.setOPPickers(tempGraphStore, true);
+            } else {
+                const q = Utils.rebuildQuad(e.data);
+
+                if (q.subject.value !== currentSubject) {
+                    currentSubject = q.subject.value;
+                    count++;
+                    if (count % 10000 === 0) {
+                        this.setOPPickers(tempGraphStore);
+                        tempGraphStore = GraphStore();
+                    }
+                }
+
+                this.graphStore.add(q);
+                tempGraphStore.add(q);
+            }
+        });
+
         rdfetcht.postMessage({
-            url: ERA_VOCABULARY,
-            headers: { 'Accept': 'application/n-quads' }
+            url: ERA_OPERATIONAL_POINTS,
+            headers: { 'Accept': 'text/turtle' }
         });
     }
 
     fetchVehicleTypes() {
         const rdfetcht = new RDFetch();
-        Alert.info('Loading Vehicles and Vehicle Types...', 3000);
+
         rdfetcht.addEventListener('message', e => {
             if (e.data === 'done') {
                 rdfetcht.terminate();
                 this.setVehicleTypesPicker();
-                Alert.info('Vehicle Types loaded successfully', 3000);
+                this.setState({ initLoad: false });
             } else {
                 this.graphStore.add(Utils.rebuildQuad(e.data));
             }
@@ -155,60 +243,39 @@ class MainLayout extends Component {
         });
     }
 
-    fetchVehicles() {
-        const rdfetcht = new RDFetch();
-        let count = 0;
-        let currentSubject = null;
-        let tempGraphStore = GraphStore();
+    fetchImplementationTile = ({ coords, asXY, zoom, force, rebuild }) => {
+        return new Promise(resolve => {
+            const tileFetcher = this.tileFetcherPool.runTask(
+                IMPLEMENTATION_TILES,
+                zoom || IMPLEMENTATION_ZOOM,
+                coords, asXY, force
+            );
 
-        rdfetcht.addEventListener('message', e => {
-            if (e.data === 'done') {
-                rdfetcht.terminate();
-                this.setVehiclePicker(tempGraphStore);
-                Alert.info('Vehicles loaded successfully', 3000);
-            } else {
-                const q = Utils.rebuildQuad(e.data);
-
-                if (q.subject.value !== currentSubject) {
-                    currentSubject = q.subject.value;
-                    count++;
-                    if (count % 50000 === 0) {
-                        this.setVehiclePicker(tempGraphStore);
-                        tempGraphStore = GraphStore();
-                    }
+            if (tileFetcher) {
+                // Show loading gifs
+                this.toggleLoading(true);
+                if (!this.state.calculatingRoutes) {
+                    this.setLoaderMessage(getPhrase('fetchingData', this.state.language));
                 }
 
-                this.graphStore.add(q);
-                tempGraphStore.add(q);
-            }
-        });
-        rdfetcht.postMessage({
-            url: ERA_VEHICLES,
-            headers: { 'Accept': 'text/turtle' }
-        });
-    }
-
-    fetchImplementationTile = (coords, force) => {
-        return new Promise(resolve => {
-            const tileFetcher = this.tileFetcherPool.runTask(IMPLEMENTATION_TILES, IMPLEMENTATION_ZOOM, coords, null, force);
-            if (tileFetcher) {
-                // Show loading gif
-                this.toggleLoading(true);
+                // New Graphy RDF store object to avoid reread issue (if rebuild)
+                const tileGraph = rebuild ? GraphStore() : this.graphStore;
                 let i = 0;
 
                 const ondata = e => {
                     const quad = e.data.quad;
                     if (quad) {
                         // Store all RDFJS quads in Graphy's graph store for later querying
-                        const n = this.graphStore.add(quad);
+                        tileGraph.add(quad);
+
                         // Extract Operational Point location for visualization
                         if (quad.predicate.value === GEOSPARQL.asWKT) {
                             i++;
                             const subject = quad.subject.value;
                             const coords = wktParse(quad.object.value).coordinates;
-                            this.allMicroNodes[subject] = coords;
+                            this.allOPLocations[subject] = coords;
                             // Throttle MN rendering for performance
-                            if (i % 400 === 0) this.renderMicroNodes();
+                            if (i % 400 === 0) this.renderOperationalPoints();
                         }
                     }
                     if (e.data.done) {
@@ -216,20 +283,30 @@ class MainLayout extends Component {
                     }
                 };
                 const ondone = () => {
-                    this.renderMicroNodes();
                     if (this.tileFetcherPool.allWorkersFree()) {
-                        // Hide loading gif
+                        // Hide loading gifs
                         this.toggleLoading(false);
+                        if (!this.state.calculatingRoutes) {
+                            this.setLoaderMessage(null);
+                        }
                     }
                     tileFetcher.removeEventListener('data', ondata);
                     tileFetcher.removeEventListener('done', ondone);
+
+                    // Merge RDF graph in new Graphy store to avoid multiple triple reading issues
+                    if (rebuild) {
+                        tileGraph.addQuads(this.graphStore.quads());
+                        this.graphStore = tileGraph;
+                    }
+
+                    this.renderOperationalPoints();
                     resolve();
                 };
 
                 tileFetcher.addEventListener('data', ondata);
                 tileFetcher.addEventListener('done', ondone);
             } else {
-                this.renderMicroNodes();
+                this.renderOperationalPoints();
                 resolve();
             }
         });
@@ -237,51 +314,75 @@ class MainLayout extends Component {
 
     fetchAbstractionTile = ({ coords, asXY, zoom, force }) => {
         return new Promise(resolve => {
-            const tileFetcher = this.tileFetcherPool.runTask(ABSTRACTION_TILES, zoom || ABSTRACTION_ZOOM, coords, asXY, force);
+            const tileFetcher = this.tileFetcherPool.runTask(
+                ABSTRACTION_TILES,
+                zoom || ABSTRACTION_ZOOM,
+                coords, asXY, force
+            );
             // Draw tile frame on the map
             this.drawTileFrame(coords, ABSTRACTION_ZOOM, asXY);
-            if (tileFetcher) {
-                // Show loading gif
-                this.toggleLoading(true);
 
+            if (tileFetcher) {
+                // Show loading gifs
+                this.toggleLoading(true);
+                if (!this.state.calculatingRoutes) {
+                    this.setLoaderMessage(getPhrase('fetchingData', this.state.language));
+                }
                 const ondata = e => {
-                    // Build rail network graph
+                    /**
+                     * Build rail Network Graph (NG) from RDF quads.
+                     * The NG is a simplified data structure G = (V, E) 
+                     * where V are built from era:NetElement entities and
+                     * E are built from era:NetRelation entities.
+                     * Edge direction is determined from era:elementA, era:elementB 
+                     * and era:navigability predicates.
+                    */
                     const quad = e.data.quad;
                     if (quad) {
-                        if (quad.predicate.value === ERA.startPort) {
-                            this.networkGraph.addEdge({
+                        if (quad.predicate.value === a && quad.object.value === ERA.NetElement) {
+                            // Got a era:NetElement then create a node in the NG
+                            this.networkGraph.setNode({ id: quad.subject.value });
+                        } else if (quad.predicate.value === ERA.length) {
+                            // Got era:length property then add to the corresponding node in the NG 
+                            this.networkGraph.setNode({
                                 id: quad.subject.value,
-                                from: quad.object.value
+                                length: quad.object.value
                             });
-                            this.networkGraph.addNode({
+                        } else if (quad.predicate.value === ERA.elementPart) {
+                            // Got era:elementPart property then link NG node to its meso-level entity
+                            this.networkGraph.setNode({
                                 id: quad.object.value,
-                                edge: quad.subject.value
+                                mesoElement: quad.subject.value
                             });
-                        } else if (quad.predicate.value === ERA.endPort) {
-                            this.networkGraph.addEdge({
+                        } else if (quad.predicate.value === ERA.NetRelation) {
+                            // Got a era:NetRelation then create node in the NG
+                            this.networkGraph.setEdge({ id: quad.subject.value });
+                        } else if (quad.predicate.value === ERA.elementA) {
+                            // Got a topological relation (era:elementA) then add corresponding node and edge to NG.
+                            // No edge direction can be inferred yet. We need navigability for it.
+                            this.networkGraph.setEdge({
                                 id: quad.subject.value,
-                                to: quad.object.value
+                                A: quad.object.value
                             });
-                        } else if (quad.predicate.value === ERA.bidirectional && quad.object.value === 'true') {
-                            this.networkGraph.setBidirectional(quad.subject.value);
-                        } else if (quad.predicate.value === GEOSPARQL.asWKT) {
-                            this.networkGraph.addNode({
+                            this.networkGraph.setNode({ id: quad.object.value })
+                        } else if (quad.predicate.value === ERA.elementB) {
+                            // Got a topological relation (era:elementB) then add corresponding node and edge to NG.
+                            // No edge direction can be inferred yet. We need navigability for it.
+                            this.networkGraph.setEdge({
                                 id: quad.subject.value,
-                                lngLat: wktParse(quad.object.value).coordinates
+                                B: quad.object.value
                             });
-                            // Add this quad also to the RDF store for visualization
-                            this.graphStore.add(quad);
-                        } else if (quad.predicate.value === ERA.belongsToNode) {
-                            this.networkGraph.addNode({
+                            this.networkGraph.setNode({ id: quad.object.value })
+                        } else if (quad.predicate.value === ERA.navigability) {
+                            // Got era:navigability then set edges direction accordingly.
+                            this.networkGraph.setEdge({
                                 id: quad.subject.value,
-                                microNode: quad.object.value
+                                navigability: quad.object.value
                             });
-                            this.graphStore.add(quad);
                         }
 
                         // Add the the quad to the RDF graph store
                         this.graphStore.add(quad);
-
                     }
 
                     if (e.data.done) {
@@ -291,8 +392,13 @@ class MainLayout extends Component {
 
                 const ondone = () => {
                     if (this.tileFetcherPool.allWorkersFree()) {
-                        // Hide loading gif
+                        // Complement with geo info and clean up the NG
+                        Utils.complementNetworkGraph(this.networkGraph, this.graphStore);
+                        // Hide loading gifs
                         this.toggleLoading(false);
+                        if (!this.state.calculatingRoutes) {
+                            this.setLoaderMessage(null);
+                        }
                     }
 
                     tileFetcher.removeEventListener('data', ondata);
@@ -308,33 +414,29 @@ class MainLayout extends Component {
         });
     }
 
-    renderMicroNodes = () => {
-        let arr = {};
-        let mns = Object.keys(this.allMicroNodes);
+    renderOperationalPoints = () => {
+        const obj = {};
+        let mns = Object.keys(this.allOPLocations);
 
-        // Filter out MicroNodes outside viewport
+        // Filter out Operational Points outside viewport
         if (this.state.bounds) {
-            mns = mns.filter(mn => {
-                return this.state.bounds.contains(this.allMicroNodes[mn]);
-            });
+            mns = mns.filter(mn => this.state.bounds.contains(this.allOPLocations[mn]));
         }
-        // If route filter is given, display only associated MNs
+        // If route filter is given, display only associated OPs
         if (this.state.routeFilter.size > 0) {
-            mns = mns.filter(mn => {
-                return this.state.routeFilter.has(this.allMicroNodes[mn].join('_'));
-            });
+            mns = mns.filter(mn => this.state.routeFilter.has(this.allOPLocations[mn].join('_')));
         }
 
         for (const mn of mns) {
-            arr[mn] = this.allMicroNodes[mn];
+            obj[mn] = this.allOPLocations[mn];
         }
 
-        this.setState(() => { return { microNodes: arr } });
+        this.setState(() => { return { displayOPs: obj } });
     }
 
     updateRouteFilter = filter => {
         this.setState({ routeFilter: filter }, () => {
-            this.renderMicroNodes();
+            this.renderOperationalPoints();
         });
     }
 
@@ -374,162 +476,199 @@ class MainLayout extends Component {
         this.setState({ popup: null });
     }
 
-    setVehicleTypesPicker = async () => {
-        const vts = await Utils.getAllVehicleTypes(this.graphStore);
-        this.setState({ vehicleTypes: vts });
+    setOPPickers = async (opgs, sort) => {
+        const ops = await Utils.getAllOperationalPoints(opgs);
+        if (ops) {
+            this.setState(state => {
+                if (sort) {
+                    return { operationalPoints: [...state.operationalPoints, ...ops].sort((a, b) => a.label.localeCompare(b.label)) }
+                }
+                return { operationalPoints: [...state.operationalPoints, ...ops] }
+            });
+        }
     }
 
-    setVehiclePicker = async gs => {
-        const vhs = await Utils.getAllVehicles(gs);
-
-        this.setState(state => {
-            return { vehicles: [...state.vehicles, ...vhs] }
-        });
+    setVehicleTypesPicker = async () => {
+        const vts = await Utils.getAllVehicleTypes(this.graphStore);
+        this.setState({ vehicleTypes: vts, fetchingVTs: false });
     }
 
     setCompatibilityVehicleType = v => {
-        this.setState({
-            compatibilityVehicleType: v,
-            compatibilityVehicle: null
-        });
+        this.setState({ compatibilityVehicleType: v });
     };
 
-    setCompatibilityVehicle = async v => {
-        const vInfo = await Utils.getVehicleInfo(v, this.graphStore);
-        const vType = await Utils.getVehicleInfo(vInfo[ERA.vehicleType], this.graphStore);
-        let svt = null;
+    selectOperationalPoint = async (op, opLoc, type) => {
+        // Get OP geolocation
+        const lngLat = Utils.getCoordsFromLocation(opLoc, this.graphStore);
+        // Start building network graph.
+        await this.fetchImplementationTile({ coords: lngLat, rebuild: true });
+        await this.fetchAbstractionTile({ coords: lngLat });
 
-        if (vType) {
-            svt = vType['@id']
+        if (type === 'from') {
+            if (this.state.to) {
+                // We have both FROM and TO, start the route planning process
+                this.setState({ from: op }, () => {
+                    this.fromTo();
+                });
+            } else {
+                // We have only FROM, then zoom in to its location
+                this.setState({ from: op, center: lngLat, zoom: [14] });
+            }
+        } else {
+            if (this.state.from) {
+                // We have both FROM and TO, start the route planning process
+                this.setState({ to: op }, () => {
+                    this.fromTo();
+                });
+            } else {
+                // We have only TO, then zoom in to its location
+                this.setState({ to: op, center: lngLat, zoom: [14] });
+            }
         }
+    }
 
-        this.setState({
-            compatibilityVehicle: v,
-            compatibilityVehicleType: svt,
+    fitMap = coords => {
+        return new Promise((resolve, reject) => {
+            this.setState({ queryBounds: coords }, () => {
+                resolve();
+            })
         });
-    };
+    }
 
-    fromTo = async feature => {
+    fetchTileSet = async (tile, asXY) => {
+        await this.fetchImplementationTile({ coords: tile, asXY });
+        await this.fetchAbstractionTile({ coords: tile, asXY });
+    }
+
+    fromTo = async () => {
         // Data is already being fetched so do nothing in the meantime
         if (this.state.loading) return false;
 
-        // Start building network graph
-        await this.fetchAbstractionTile({ coords: feature.lngLat });
-        if (!this.from.ports && this.state.to !== feature[RDFS.label]) {
-            // Get the NodePorts of this MicroNode
-            const nodePorts = Utils.getMicroNodePorts(this.graphStore, feature['@id']);
-            if (nodePorts) {
-                this.from.ports = nodePorts;
-                this.from.lngLat = feature.lngLat;
-                this.setState({ from: feature[RDFS.label] });
-            } else {
-                this.setState({ showTileFrames: false });
-                // Show warning of disconnected MicroNode
-                Alert.warning(`This Operational Point (${feature[RDFS.label]}) is not connected to the railway infrastructure`, 10000);
-            }
-        } else if (this.state.from !== feature[RDFS.label]) {
-            // Get the NodePorts of this MicroNode
-            const nodePorts = Utils.getMicroNodePorts(this.graphStore, feature['@id']);
-            if (nodePorts) {
-                this.to.ports = nodePorts;
-                this.to.lngLat = feature.lngLat
-                this.setState({ to: feature[RDFS.label] });
-            } else {
-                this.setState({ showTileFrames: false });
-                // Show warning of disconnected MicroNode
-                Alert.warning(`This Operational Point (${feature[RDFS.label]}) is not connected to the railway infrastructure`, 10000);
-                this.to = {};
-            }
+        // Get reachable micro NetElements of FROM Operational Point
+        const fromMicroNEs = Utils.getMicroNetElements(this.state.from, this.graphStore)
+            .filter(ne => this.networkGraph.nodes.has(ne.value));
+        const fromOp = Utils.getOPInfo(this.state.from, this.graphStore);
+
+        if (fromMicroNEs.length === 0) {
+            this.setState({ showTileFrames: false });
+            const label = Utils.getLiteralInLanguage(fromOp[RDFS.label], this.state.language);
+            // Show warning of disconnected NetElement
+            Alert.warning(getPhrase('disconnectedOP', this.state.language, label), 10000);
+            return;
         }
 
-        // Perform source selection and run Dijkstra if FROM and TO are defined and are not the same
-        if (this.from.ports && this.to.ports && !this.to.ports.includes(this.from.ports[0]) && this.state.routes.length <= 0) {
-            // Fit map to selected query
-            this.setState({
-                queryBounds: [this.from.lngLat, this.to.lngLat]
-            });
+        // Get geolocation of FROM OP
+        this.from.microNEs = fromMicroNEs;
+        this.from.lngLat = Utils.getCoordsFromOP(this.state.from, this.graphStore);
+        this.from.length = 0
 
-            // Set OP filter to show only FROM and TO
-            const filter = new Set([
-                wktParse(Utils.getNodePortInfo(this.from.ports[0], this.graphStore)[GEOSPARQL.asWKT]).coordinates.join('_'),
-                wktParse(Utils.getNodePortInfo(this.to.ports[0], this.graphStore)[GEOSPARQL.asWKT]).coordinates.join('_')
-            ]);
-            this.updateRouteFilter(filter);
+        // Get reachable micro NetElements of TO Operational Point
+        const toMicroNEs = Utils.getMicroNetElements(this.state.to, this.graphStore)
+            .filter(ne => this.networkGraph.nodes.has(ne.value));
+        const toOp = Utils.getOPInfo(this.state.to, this.graphStore);
 
-            // Gather all the tiles intersected by the straight line between origin and destination
-            const intersectedTiles = findIntersectedTiles(this.from.lngLat, this.to.lngLat);
+        if (toMicroNEs.length === 0) {
+            this.setState({ showTileFrames: false });
+            const label = Utils.getLiteralInLanguage(toOp[RDFS.label], this.state.language);
+            // Show warning of disconnected NetElement
+            Alert.warning(getPhrase('disconnectedOP', this.state.language, label), 10000);
+            return;
+        }
 
-            await Promise.all(intersectedTiles.map(async tile => {
-                return this.fetchAbstractionTile({ coords: tile, asXY: true });
+        // Get geolocation of TO OP
+        this.to.microNEs = toMicroNEs;
+        this.to.lngLat = Utils.getCoordsFromOP(this.state.to, this.graphStore);
+
+        // Handle case where FROM and TO are the same
+        if (this.state.from === this.state.to) {
+            Alert.warning('Please select different FROM and TO Operational Points', 5000);
+            return;
+        }
+
+        // Fit map to selected query
+        await this.fitMap([this.from.lngLat, this.to.lngLat]);
+
+        // Set OP filter to show only FROM and TO
+        this.updateRouteFilter(new Set([
+            this.from.lngLat.join('_'),
+            this.to.lngLat.join('_')
+        ]));
+
+        // Gather all the tiles intersected by the straight line between origin and destination
+        const intersectedTiles = findIntersectedTiles(this.from.lngLat, this.to.lngLat);
+        if (intersectedTiles.length < 10) {
+            await Promise.all(intersectedTiles.map(tile => {
+                return this.fetchTileSet(tile, true);
             }));
-
-            this.pathFinder = new PathFinder({
-                networkGraph: this.networkGraph,
-                graphStore: this.graphStore,
-                fetchAbstractionTile: this.fetchAbstractionTile,
-                fetchImplementationTile: this.fetchImplementationTile
-            });
-
-            this.pathFinder.on('path', path => {
-                if (path) {
-                    this.setState(state => {
-                        return {
-                            routes: [...state.routes, {
-                                path,
-                                renderNodes: false,
-                                style: randomRouteStyle()
-                            }]
-                        };
-                    }, () => { this.renderMicroNodes() });
-                }
-            });
-
-            this.pathFinder.on('done', () => { this.setState({ showTileFrames: false, calculatingRoutes: false }) });
-
-            this.setLoaderMessage('Calculating routes...');
-            if (!(await this.pathFinder.yen(this.from, this.to, this.state.maxRoutes))) {
-                if (!this.pathFinder.die) {
-                    Alert.warning('There are no possible routes between these two locations', 10000);
-                    this.setState({ showTileFrames: false, calculatingRoutes: false });
-                }
-            }
         }
+
+        // Setup route planner object
+        this.pathFinder = new PathFinder({
+            networkGraph: this.networkGraph,
+            graphStore: this.graphStore,
+            fetchAbstractionTile: this.fetchAbstractionTile,
+            fetchImplementationTile: this.fetchImplementationTile,
+            tileCache: this.tileFetcherPool.cache,
+            tilesBaseURI: ABSTRACTION_TILES,
+            zoom: ABSTRACTION_ZOOM,
+            //debug: true
+        });
+
+        // Function called when a path is found
+        this.pathFinder.on('path', path => {
+            if (path) {
+                this.setState(state => {
+                    return {
+                        routes: [...state.routes, {
+                            path,
+                            renderNodes: false,
+                            style: randomRouteStyle()
+                        }]
+                    };
+                }, () => { this.renderOperationalPoints() });
+            }
+        });
+
+        // Function called when the route planner has finished
+        this.pathFinder.on('done', () => {
+            // Route planner finished, remove tiles and loading data signals
+            this.setState({ showTileFrames: false });
+            this.setLoaderMessage(null);
+            this.toggleRouteCalculation(false);
+        });
+
+        this.toggleRouteCalculation(true);
+        this.setLoaderMessage(getPhrase('calculatingRoutes', this.state.language));
+
+        // Start the route planning process
+        const result = await this.pathFinder.yen(this.from, this.to, this.state.maxRoutes);
+
+        if (!result && !this.pathFinder.die) {
+            // There are no routes between the given OPs
+            Alert.warning('There are no possible routes between these two locations', 10000);
+            this.setState({ showTileFrames: false });
+            this.toggleRouteCalculation(false);
+            this.setLoaderMessage(null);
+        }
+
     }
 
     checkCompatibility = route => {
         if (this.state.compatibilityVehicleType) {
-            if (this.state.compatibilityVehicle) {
-                const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
-                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
-                v[ERA.vehicleType] = vt;
-
-                const report = route.map(t => {
-                    return Utils.checkCompatibility(t, v, this.graphStore, true);
-                });
-                return report;
-            } else {
-                const vt = Utils.getVehicleInfo(this.state.compatibilityVehicleType, this.graphStore);
-                const report = route.map(t => {
-                    return Utils.checkCompatibility(t, vt, this.graphStore);
-                });
-                return report;
-            }
-        } else if (this.state.compatibilityVehicle) {
-            const v = Utils.getVehicleInfo(this.state.compatibilityVehicle, this.graphStore);
-            const report = route.map(t => {
-                return Utils.checkCompatibility(t, v, this.graphStore, true);
+            const reports = route.map(track => {
+                return verifyCompatibility(track, this.state.compatibilityVehicleType, this.graphStore);
             });
-            return report;
+            return reports;
         }
     };
 
+    toggleRouteCalculation = flag => {
+        this.setState({ calculatingRoutes: flag });
+    }
+
     setLoaderMessage = m => {
         return new Promise(resolve => {
-            if (m) {
-                this.setState({ calculatingRoutes: true, loaderMessage: m }, () => { resolve() });
-            } else {
-                this.setState({ calculatingRoutes: false }, () => { resolve() });
-            }
+            this.setState({ loaderMessage: m }, () => { resolve() });
         });
     }
 
@@ -539,10 +678,6 @@ class MainLayout extends Component {
 
     clearVehicleType = () => {
         this.setState({ compatibilityVehicleType: null });
-    }
-
-    clearVehicle = () => {
-        this.setState({ compatibilityVehicle: null });
     }
 
     clearRoutes(param) {
@@ -556,6 +691,7 @@ class MainLayout extends Component {
             this.setState({ to: '' });
         }
 
+        this.setLoaderMessage(null);
         this.setState({
             routes: [],
             routeFilter: new Set(),
@@ -563,7 +699,7 @@ class MainLayout extends Component {
             showTileFrames: false,
             calculatingRoutes: false,
             loading: false
-        }, () => { this.renderMicroNodes() });
+        }, () => { this.renderOperationalPoints() });
     }
 
     toggleInternalView = (show, mn, route) => {
@@ -581,16 +717,24 @@ class MainLayout extends Component {
 
     onDragEnd = map => {
         const center = map.getCenter();
-        this.setState({ bounds: map.getBounds(), popup: null });
-        this.fetchImplementationTile([center.lng, center.lat]);
-        this.renderMicroNodes();
+        this.setState({
+            bounds: map.getBounds()
+        }, () => {
+            if (!this.state.calculatingRoutes) {
+                this.fetchImplementationTile({ coords: [center.lng, center.lat], rebuild: true });
+            }
+        });
     }
 
     onZoomEnd = map => {
         const center = map.getCenter();
-        this.setState({ bounds: map.getBounds(), popup: null });
-        this.fetchImplementationTile([center.lng, center.lat]);
-        this.renderMicroNodes();
+        this.setState({
+            bounds: map.getBounds()
+        }, () => {
+            if (!this.state.calculatingRoutes) {
+                this.fetchImplementationTile({ coords: [center.lng, center.lat], rebuild: true });
+            }
+        });
     }
 
     render() {
@@ -599,7 +743,7 @@ class MainLayout extends Component {
             zoom,
             queryBounds,
             queryBoundsOpts,
-            microNodes,
+            displayOPs,
             popup,
             loading,
             tileFrames,
@@ -609,8 +753,10 @@ class MainLayout extends Component {
             internalViewPath,
             pathColor,
             showTileFrames,
+            operationalPoints,
+            fetchingOPs,
             vehicleTypes,
-            vehicles,
+            fetchingVTs,
             routes,
             from,
             to,
@@ -618,7 +764,7 @@ class MainLayout extends Component {
             calculatingRoutes,
             loaderMessage,
             compatibilityVehicleType,
-            compatibilityVehicle
+            language
         } = this.state;
 
         return (
@@ -636,53 +782,95 @@ class MainLayout extends Component {
                     <Sidebar style={sideBar}>
                         <div style={stickyMenu}>
                             <Sidenav.Header>
-                                <div style={eraLogoWrapper}><ERALogo src={eraLogoPath}></ERALogo></div>
                                 <div style={sidebarHeader}>
-                                    <span style={{ marginLeft: 12 }}>Route Compatibility Check</span>
+                                    <span style={{ marginLeft: 12 }}>{getPhrase("routeCompatibilityCheck", language)}</span>
                                     <Icon icon="info-circle" size="lg" style={infoButton}
-                                        title="how to use this application" onClick={() => this.toggleHelpPage(true)} />
+                                        title={getPhrase("howToUse", language)} onClick={() => this.toggleHelpPage(true)} />
                                 </div>
                             </Sidenav.Header>
 
-                            <InputGroup inside style={inputGroup}>
-                                <InputGroup.Addon>FROM:</InputGroup.Addon>
-                                <Input style={input} disabled value={from}></Input>
-                                <InputGroup.Button onClick={() => this.clearRoutes('from')}>
-                                    <Icon icon="times-circle" />
-                                </InputGroup.Button>
-                            </InputGroup>
-
-                            <InputGroup inside style={inputGroup}>
-                                <InputGroup.Addon>TO:</InputGroup.Addon>
-                                <Input style={input} disabled value={to}></Input>
-                                <InputGroup.Button onClick={() => this.clearRoutes('to')}>
-                                    <Icon icon="times-circle" />
-                                </InputGroup.Button>
-                            </InputGroup>
-
-                            <InputNumber
-                                min={1}
-                                value={maxRoutes}
-                                style={{ fontSize: '22px' }}
-                                prefix={"Max number of routes:"}
-                                onChange={n => this.setMaxRoutes(n)} />
-
                             <SelectPicker
                                 style={selectStyle}
-                                placeholder={'Select a Vehicle Type'}
-                                onSelect={v => this.setCompatibilityVehicleType(v)}
-                                onClean={this.clearVehicleType}
-                                data={vehicleTypes}
-                                value={compatibilityVehicleType}>
+                                placeholder={getPhrase("from", language)}
+                                onSelect={(op, item) => this.selectOperationalPoint(op, item.location, 'from')}
+                                onClean={() => this.clearRoutes('from')}
+                                data={operationalPoints}
+                                value={from}
+                                renderMenu={menu => {
+                                    if (fetchingOPs) {
+                                        return (
+                                            <p style={{ padding: 4, color: '#999', textAlign: 'center' }}>
+                                                <Icon icon="spinner" spin />{getPhrase('loading', language)}...
+                                            </p>
+                                        )
+                                    }
+                                    return menu;
+                                }}
+                                renderValue={(value, item) => {
+                                    return (
+                                        <div>
+                                            <span style={{ color: '#575757' }}>
+                                                {getPhrase("from", language)}:
+                                            </span>{' '}
+                                            {item && item.label}
+                                        </div>
+                                    )
+                                }}>
                             </SelectPicker>
 
                             <SelectPicker
                                 style={selectStyle}
-                                placeholder={'Select a Vehicle'}
-                                onSelect={v => this.setCompatibilityVehicle(v)}
-                                onClean={this.clearVehicle}
-                                data={vehicles}
-                                value={compatibilityVehicle}>
+                                placeholder={getPhrase("to", language)}
+                                onSelect={(op, item) => this.selectOperationalPoint(op, item.location, 'to')}
+                                onClean={() => this.clearRoutes('to')}
+                                data={operationalPoints}
+                                value={to}
+                                renderMenu={menu => {
+                                    if (fetchingOPs) {
+                                        return (
+                                            <p style={{ padding: 4, color: '#999', textAlign: 'center' }}>
+                                                <Icon icon="spinner" spin />{getPhrase('loading', language)}...
+                                            </p>
+                                        )
+                                    }
+                                    return menu;
+                                }}
+                                renderValue={(value, item) => {
+                                    return (
+                                        <div>
+                                            <span style={{ color: '#575757' }}>
+                                                {getPhrase("to", language)}:
+                                            </span>{' '}
+                                            {item && item.label}
+                                        </div>
+                                    )
+                                }}>
+                            </SelectPicker>
+
+                            <InputNumber
+                                min={1}
+                                value={maxRoutes}
+                                style={inputStyle}
+                                prefix={getPhrase("maxNumberOfRoutes", language)}
+                                onChange={n => this.setMaxRoutes(n)} />
+
+                            <SelectPicker
+                                style={selectStyle}
+                                placeholder={getPhrase("selectVehicleType", language)}
+                                onSelect={v => this.setCompatibilityVehicleType(v)}
+                                onClean={this.clearVehicleType}
+                                data={vehicleTypes}
+                                value={compatibilityVehicleType}
+                                renderMenu={menu => {
+                                    if (fetchingVTs) {
+                                        return (
+                                            <p style={{ padding: 4, color: '#999', textAlign: 'center' }}>
+                                                <Icon icon="spinner" spin />{getPhrase('loading', language)}...
+                                            </p>
+                                        )
+                                    }
+                                    return menu;
+                                }}>
                             </SelectPicker>
 
                             <Divider />
@@ -692,22 +880,47 @@ class MainLayout extends Component {
                             routes={routes}
                             graphStore={this.graphStore}
                             routeExpansionHandler={this.routeExpansionHandler}
-                            setLoaderMessage={this.setLoaderMessage}
                             fetchImplementationTile={this.fetchImplementationTile}
-                            fetchAbstractionTile={this.fetchAbstractionTile}
                             compatibilityVehicleType={compatibilityVehicleType}
-                            compatibilityVehicle={compatibilityVehicle}
                             checkCompatibility={this.checkCompatibility}
-                            toggleInternalView={this.toggleInternalView}>
+                            toggleInternalView={this.toggleInternalView}
+                            language={language}>
                         </RoutesInfo>
 
-                        {calculatingRoutes && (<Loader size={'lg'} speed={'normal'} content={loaderMessage}></Loader>)}
+                        {loaderMessage && (
+                            <Loader vertical size={'lg'} speed={'normal'} content={loaderMessage}></Loader>
+                        )}
+
+                        {!calculatingRoutes &&
+                            <Container>
+                                <RoutesExport
+                                    routes={routes}
+                                    graphStore={this.graphStore}
+                                    from={from}
+                                    to={to}
+                                    routeExpansionHandler={this.routeExpansionHandler}
+                                    setLoaderMessage={this.setLoaderMessage}
+                                    fetchImplementationTile={this.fetchImplementationTile}
+                                    compatibilityVehicleType={compatibilityVehicleType}
+                                    checkCompatibility={this.checkCompatibility}
+                                    toggleInternalView={this.toggleInternalView} />
+
+                                <RoutesPermalink
+                                    location={this.props.location}
+                                    fromId={from}
+                                    fromLoc={this.from.lngLat}
+                                    toId={to}
+                                    toLoc={this.to.lngLat}
+                                    routes={routes}
+                                    maxRoutes={maxRoutes}
+                                    compatibilityVehicleType={compatibilityVehicleType} />
+                            </Container>
+                        }
 
                     </Sidebar>
                     <Container>
                         <Content>
                             <MapBox
-                                // eslint-disable-next-line
                                 style="mapbox://styles/mapbox/light-v10"
                                 containerStyle={mapStyle}
                                 center={center}
@@ -726,25 +939,63 @@ class MainLayout extends Component {
                                 {showTileFrames && (<TileFramesLayer tileFrames={tileFrames}></TileFramesLayer>)}
 
                                 <OperationalPointsLayer
-                                    microNodes={microNodes}
+                                    displayOPs={displayOPs}
                                     graphStore={this.graphStore}
                                     popupData={this.popupData}
-                                    closePopup={this.closePopup}
-                                    fromTo={this.fromTo}
                                 ></OperationalPointsLayer>
 
                                 {popup && (
                                     <Popup coordinates={popup.lngLat}>
+                                        <IconButton icon={<Icon icon="close" />}
+                                            style={{ float: 'right' }} onClick={this.closePopup} />
                                         <StyledPopup>
-                                            <h2>{popup[RDFS.label]}</h2>
-                                            <div><strong>@id: </strong>{popup['@id']}</div>
-                                            {popup[ERA.tafTapCode] !== '' && (
-                                                <div><strong>TAF/TAP code: </strong>{popup[ERA.tafTapCode]}</div>
+                                            <h2>
+                                                <a href={popup['@id']} target='_blank'>
+                                                    {Utils.getLiteralInLanguage(popup[RDFS.label])}
+                                                </a>
+                                            </h2>
+                                            <div>
+                                                <strong>
+                                                    <a href={ERA.uopid} target='_blank'>{getPhrase('rinfId', language)}: </a>
+                                                </strong>
+                                                {Utils.getLiteralInLanguage(popup[ERA.uopid], language)}
+                                            </div>
+                                            {popup[ERA.tafTapCode] && (
+                                                <div>
+                                                    <strong>
+                                                        <a href={ERA.tafTapCode} target='_blank'>{getPhrase('tafTapCode', language)}: </a>
+                                                    </strong>
+                                                    {Array.isArray(popup[ERA.tafTapCode]) ? popup[ERA.tafTapCode].map(c => c.value).join(', ')
+                                                        : popup[ERA.tafTapCode].value}
+                                                </div>
                                             )}
-                                            <div><strong>type: </strong>{popup[ERA.opType][SKOS.prefLabel]}</div>
-                                            {popup[ERA.opType][RDFS.description] !== '' &&
-                                                <div><strong>description: </strong>{popup[ERA.opType][SKOS.definition]}</div>
-                                            }
+                                            <div>
+                                                <strong>
+                                                    <a href={ERA.opType} target="_blank">{getPhrase('type', language)}: </a>
+                                                    <a href={popup[ERA.opType]['@id']} target="_blank">
+                                                        {Utils.getLiteralInLanguage(popup[ERA.opType][SKOS.prefLabel], language)}
+                                                    </a>
+                                                </strong>
+                                            </div>
+                                            <div>
+                                                <strong>
+                                                    <a href={WGS84.location} target='_blank'>{getPhrase('geographicalLocation', language)}: </a>
+                                                </strong>
+                                                {popup[WGS84.location][GEOSPARQL.asWKT].value}
+                                            </div>
+                                            <div>
+                                                <strong>
+                                                    <a href={ERA.inCountry} target='_blank'>{getPhrase('country', language)}: </a>
+                                                    {Object.keys(popup[ERA.inCountry]).map((c, i) => {
+                                                        const sep = i < Object.keys(popup[ERA.inCountry]).length - 1 ? ', ' : ''; 
+                                                        return (
+                                                            <a key={c} href={c} target='_blank'>
+                                                                {Utils.getLiteralInLanguage(popup[ERA.inCountry][c][SKOS.prefLabel], language) + sep}
+                                                            </a>
+                                                        );
+                                                    })}
+                                                </strong>
+                                            </div>
                                         </StyledPopup>
                                     </Popup>
                                 )}

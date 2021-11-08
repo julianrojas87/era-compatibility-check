@@ -1,13 +1,13 @@
 import { JsonLdParser } from "jsonld-streaming-parser";
+import { RdfXmlParser } from "rdfxml-streaming-parser";
 import { StreamParser } from "n3";
 import { quadToStringQuad } from 'rdf-string';
 
 self.addEventListener('message', async e => {
+    // const t0 = new Date()
     // console.log(`Fetching RDF resource ${e.data.url}`)
 
     const res = await fetch(e.data.url, { headers: e.data.headers || [] });
-    // Get the HTTP response as a ReadableStream
-    // let stream = null;
 
     if (res.ok) {
         const contentType = res.headers.get('Content-Type');
@@ -24,8 +24,14 @@ self.addEventListener('message', async e => {
             data = await res.text();
         } else if (contentType.includes('text/turtle')) {
             parser = new StreamParser({ format: 'Turtle' });
-            //stream = res.body.getReader();
             data = await res.text();
+        } else if (contentType.includes('application/rdf+xml') || contentType.includes('text/xml')) {
+            parser = new RdfXmlParser();
+            data = await res.text();
+        } else {
+            console.error(`Unrecognized Content-Type ${contentType} for resource ${e.data.url}`)
+            self.postMessage('done');
+            return;
         }
 
         parser.on('data', quad => {
@@ -37,20 +43,11 @@ self.addEventListener('message', async e => {
                 self.postMessage('done');
             });
 
-        if (!data) {
-            // process response as a stream
-            /*for await (const d of readStream(stream)) {
-                //console.log(d);
-                //parser.write(d);
-            }*/
+
+        if (Array.isArray(data)) {
+            data.forEach(d => parser.write(d));
         } else {
-            if (Array.isArray(data)) {
-                for (const d of data) {
-                    parser.write(d);
-                }
-            } else {
-                parser.write(data);
-            }
+            parser.write(data);
         }
 
         parser.end();
@@ -59,16 +56,34 @@ self.addEventListener('message', async e => {
     }
 });
 
-// Function to read fetch response as a stream
-// Sometimes it gives incomplete data which crashes the parsing process :(
-/*async function* readStream(stream) {
-    const decoder = new TextDecoder('utf-8');
-    let readable = true;
-    while (readable) {
-        const { value, done } = await stream.read();
-        const dv = decoder.decode(value);
-        console.log('VALUE:', dv);
-        yield dv
-        readable = done;
+
+// Function to read fetch response as a line by line text stream
+/*async function* readStream(res) {
+    const utf8Decoder = new TextDecoder('utf-8');
+    const reader = res.body.getReader();
+    let { value: chunk, done: readerDone } = await reader.read();
+    chunk = chunk ? utf8Decoder.decode(chunk) : '';
+
+    const re = /\n|\r|\r\n/gm;
+    let startIndex = 0;
+
+    for (; ;) {
+        let result = re.exec(chunk);
+        if (!result) {
+            if (readerDone) {
+                break;
+            }
+            let remainder = chunk.substr(startIndex);
+            ({ value: chunk, done: readerDone } = await reader.read());
+            chunk = remainder + (chunk ? utf8Decoder.decode(chunk) : '');
+            startIndex = re.lastIndex = 0;
+            continue;
+        }
+        yield chunk.substring(startIndex, result.index);
+        startIndex = re.lastIndex;
+    }
+    if (startIndex < chunk.length) {
+        // last line didn't end in a newline char
+        yield chunk.substr(startIndex);
     }
 }*/

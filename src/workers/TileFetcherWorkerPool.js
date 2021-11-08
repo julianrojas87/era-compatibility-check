@@ -1,4 +1,5 @@
 import RDFetch from './RDFetch.worker';
+import { QuadEvent } from './QuadEvent';
 import Utils from '../utils/Utils';
 
 export class TileFetcherWorkerPool {
@@ -12,7 +13,7 @@ export class TileFetcherWorkerPool {
     init() {
         let pool = [];
         for (let i = 0; i < this.cpus; i++) {
-            pool.push({ instance: new RDFetch(), busy: false });
+            pool.push({ id: i, busy: false });
         }
         return pool;
     }
@@ -28,19 +29,23 @@ export class TileFetcherWorkerPool {
         }
 
         // Only fetch new tiles
-        if (!this.cache.has(`${source}/${z}/${x}/${y}`) || force) {
+        const tileId = `${source}/${z}/${x}/${y}`
+
+        if (!this.cache.has(tileId) || force) {
             // Event handler object that delivers the streamed data
-            const eventHandler = new EventTarget();
+            const eventHandler = new QuadEvent(tileId);
             // Future reminder that we processed this one
-            this.cache.add(`${source}/${z}/${x}/${y}`);
+            this.cache.add(tileId);
             // Add task to queue
-            this.queue.push({ x, y, z, source, eventHandler, force });
+            this.queue.push({ tileId, eventHandler });
 
             // Find a free worker
             let worker = null;
             for (const [i, w] of this.pool.entries()) {
                 if (!w.busy) {
                     w.busy = true;
+                    // Refresh worker object
+                    w.instance = new RDFetch();
                     worker = w;
                     break;
                 }
@@ -78,12 +83,9 @@ export class TileFetcherWorkerPool {
             worker.instance.addEventListener('message', onmessage);
 
             // Kick-off for worker!
-            const headers = { 'Accept': 'application/n-quads' };
-            if(task.force) {
-                headers['Cache-Control'] = 'no-cache';
-            };
+            const headers = { Accept: 'application/n-triples' };
             worker.instance.postMessage({
-                url: `${task.source}/${task.z}/${task.x}/${task.y}`,
+                url: task.tileId,
                 headers: headers
             });
         }
