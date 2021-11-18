@@ -18,7 +18,7 @@ function getTrackPropertyValue(t, params) {
 }
 
 export function verifyCompatibility(t, vt, store) {
-    const track = Utils.getTrackInfo(t.id.value, store);
+    const track = Utils.getTrackInfo(t.id, store);
     const vehicleType = Utils.getVehicleTypeInfo(vt, store);
     const report = {};
 

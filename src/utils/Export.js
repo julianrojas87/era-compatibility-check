@@ -192,7 +192,6 @@ export async function exportSearchToExcel(
 function mountSteps({
   routes,
   graphStore,
-  fetchImplementationTile,
   compatibilityVehicleType,
   checkCompatibility,
 }) {
@@ -203,19 +202,9 @@ function mountSteps({
     let report = [];
 
     for (const node of r.path.nodes) {
-      let op = Utils.getOPFromMicroNetElement(node.id, graphStore);
-
-      if (op) {
+      if (node.lngLat) {
         // NetElement belongs to an OP
-        if (!op[ERA.opType]) {
-          // OP belongs to a tile we haven't fetched yet
-          await fetchImplementationTile({
-            coords: wktParse(op[WGS84.location][GEOSPARQL.asWKT].value).coordinates,
-            rebuild: true, force: true
-          });
-          op = Utils.getOPFromMicroNetElement(node.id, graphStore);
-        }
-
+        const op = Utils.getOPFromMicroNetElement(node.id, graphStore);
         if (!steps[op['@id']]) {
           steps[op['@id']] = op;
         }
@@ -346,7 +335,7 @@ function getTrackDescription(desc, reps, graphStore, compatibilityVehicleType) {
     <View>
       <View style={styles.trackView}>
         <Text style={styles.trackText}>Track: </Text>
-        <Link style={styles.trackLink} src={desc.id.value}>
+        <Link style={styles.trackLink} src={desc.id}>
           {' ' + getLabel(desc.id, ERA.trackId, graphStore)}
         </Link>
       </View>
@@ -662,9 +651,9 @@ function mountRouteTab(props, panel, workbook) {
     });
 
     if (tracks[i]) {
-      const trackLink = tracks[i].id.value;
+      const trackLink = tracks[i].id;
       trackCol.push({
-        text: getLabel(tracks[i].id.value, ERA.trackId, graphStore),
+        text: getLabel(tracks[i].id, ERA.trackId, graphStore),
         hyperlink: trackLink,
         tooltip: trackLink,
       });

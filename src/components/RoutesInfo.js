@@ -146,13 +146,13 @@ export class RoutesInfo extends Component {
             return (
                 <span>
                     <span style={{ fontWeight: 'bold' }}>Track:</span>
-                    <a href={desc.id.value} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)} </a>
+                    <a href={desc.id} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)} </a>
                     {`(${desc.length / 1000} km)`}
                 </span>);
         } else {
             return (
                 <div>
-                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={desc.id.value} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)}</a></span><br />
+                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={desc.id} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)}</a></span><br />
                     <span><span style={{ fontWeight: 'bold' }}>Vehicle Type:</span> <a href={this.props.compatibilityVehicleType} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicleType, ERA.typeVersionNumber)}</a></span><br />
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
@@ -167,8 +167,8 @@ export class RoutesInfo extends Component {
                             {Object.keys(reps).map((rep, i) => {
                                 const compatibility = reps[rep].compatible ? 'YES'
                                     : reps[rep].compatible === false ? 'NO'
-                                    : reps[rep].values.track === ERA.notApplicable ? 'YES'
-                                    : 'UNKNOWN';
+                                        : reps[rep].values.track === ERA.notApplicable ? 'YES'
+                                            : 'UNKNOWN';
                                 return (
                                     <tr key={`rep-${i}`} style={{ borderBottom: '1px solid black' }}>
                                         <td style={cellStyle}>
@@ -195,6 +195,14 @@ export class RoutesInfo extends Component {
         }
     }
 
+    fetchMissingTiles = async nodes => {
+        await Promise.all(nodes.map(async n => {
+            if (n.lngLat) {
+                return this.props.fetchImplementationTile({ coords: n.lngLat });
+            }
+        }));
+    }
+
     async componentDidUpdate(prevProps) {
         const { routes } = this.props;
         if (JSON.stringify(prevProps.routes) !== JSON.stringify(routes)
@@ -212,20 +220,13 @@ export class RoutesInfo extends Component {
                         const tracks = [];
                         let report = [];
 
+                        // Fetch all missing implementation tiles
+                        await this.fetchMissingTiles(r.path.nodes);
+
                         for (const node of r.path.nodes) {
-                            let op = Utils.getOPFromMicroNetElement(node.id, this.props.graphStore);
-
-                            if (op) {
+                            if(node.lngLat) {
                                 // NetElement belongs to an OP
-                                if (!op[ERA.opType]) {
-                                    // OP belongs to a tile we haven't fetched yet
-                                    await this.props.fetchImplementationTile({
-                                        coords: wktParse(op[WGS84.location][GEOSPARQL.asWKT].value).coordinates,
-                                        rebuild: true, force: true
-                                    });
-                                    op = Utils.getOPFromMicroNetElement(node.id, this.props.graphStore);
-                                }
-
+                                const op = Utils.getOPFromMicroNetElement(node.id, this.props.graphStore);
                                 if (!steps[op['@id']]) {
                                     steps[op['@id']] = op;
                                 }

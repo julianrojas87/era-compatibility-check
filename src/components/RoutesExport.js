@@ -19,7 +19,6 @@ export function RoutesExport({
   from,
   to,
   graphStore,
-  fetchImplementationTile,
   compatibilityVehicleType,
   checkCompatibility,
 }) {
@@ -41,7 +40,6 @@ export function RoutesExport({
               to,
               routes,
               graphStore,
-              fetchImplementationTile,
               compatibilityVehicleType,
               checkCompatibility,
             });
@@ -64,7 +62,6 @@ export function RoutesExport({
               to,
               routes,
               graphStore,
-              fetchImplementationTile,
               compatibilityVehicleType,
               checkCompatibility,
             });

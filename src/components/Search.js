@@ -493,7 +493,9 @@ export default class Search extends Component {
             const opTypeName = Utils.getLiteralInLanguage(opType, language);
             const uopid = rawResult[key][ERA.uopid].value;
             const opRawType = getNameFromIndex(eraOpType.value);
-            const gLocation = rawResult[key][WGS84.location].value;
+            const gLocation = Array.isArray(rawResult[key][WGS84.location]) 
+              ? rawResult[key][WGS84.location][1].value
+              : rawResult[key][WGS84.location].value;
             const tafTAPCode = Utils.getLiteralInLanguage(
               rawResult[key][ERA.tafTapCode],
               language

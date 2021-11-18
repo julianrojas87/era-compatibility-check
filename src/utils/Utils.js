@@ -1,7 +1,7 @@
 import wktParse from 'wellknown';
 import * as rdfString from 'rdf-string';
 import rdfjs from '@rdfjs/data-model';
-import { a, ERA, GEOSPARQL, WGS84, RDFS, OWL, RDF, SKOS } from './NameSpaces.js';
+import { a, ERA, GEOSPARQL, WGS84, RDFS, OWL, RDF } from './NameSpaces.js';
 
 const { stringQuadToQuad } = rdfString;
 const { namedNode, literal, blankNode } = rdfjs;
@@ -71,7 +71,52 @@ function rebuildQuad(str) {
     return stringQuadToQuad(str);
 }
 
-function queryGraphStore(params, log) {
+function processTopologyQuads(quads, NG) {
+    for (const quad of quads) {
+        /**
+         * Build rail Network Graph (NG) from RDF quads.
+         * The NG is a data structure G = (V, E) 
+         * where V are built from era:NetElement entities and
+         * E are built from era:NetRelation entities,
+         * which have been simplified by the SPARQL CONSTRUCT queries
+         * to simple entities that are era:linkedTo each other.
+         * 
+        */
+        if (quad.predicate.value === GEOSPARQL.asWKT) {
+            // Got node geo coordinates
+            NG.setNode({
+                id: quad.subject.value,
+                lngLat: wktParse(quad.object.value).coordinates
+            });
+        } else if (quad.predicate.value === ERA.length) {
+            // Got era:length property
+            NG.setNode({
+                id: quad.subject.value,
+                length: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.lineNationalId) {
+            // Got era:lineNationalId property
+            NG.setNode({
+                id: quad.subject.value,
+                lineNationalId: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.partOf) {
+            // Got era:partOf property then link NG node to its meso-level entity
+            NG.setNode({
+                id: quad.subject.value,
+                mesoElement: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.linkedTo) {
+            // Got a era:linkedTo property that indicates a reachable node
+            NG.setNode({
+                id: quad.subject.value,
+                nextNode: quad.object.value
+            });
+        }
+    }
+}
+
+function queryGraphStore(params) {
     let res = {};
     let sub = null;
     let obj = null;
@@ -156,7 +201,7 @@ async function getAllOperationalPoints(store) {
         store,
         p: RDFS.label
     });
-    
+
     if (ops) {
         return await Promise.all(Object.keys(ops).map(async op => {
             const opp = queryGraphStore({
@@ -168,8 +213,10 @@ async function getAllOperationalPoints(store) {
 
             return {
                 value: op,
-                label: `${Array.isArray(label) ? label.map(l => l.value).join(' / ') : label.value} - ${opp[op][ERA.uopid].value}`,
-                location: Array.isArray(opp[op][WGS84.location]) ? opp[op][WGS84.location][0].value : opp[op][WGS84.location].value
+                label: `${Array.isArray(label) ? label.map(l => l.value).join(' / ')
+                    : label.value} - ${opp[op][ERA.uopid].value}`,
+                location: Array.isArray(opp[op][WGS84.location]) ? opp[op][WGS84.location][0].value
+                    : opp[op][WGS84.location].value
             }
         }));
     }
@@ -198,42 +245,21 @@ async function getAllVehicleTypes(store) {
 function getOPInfo(opid, store) {
     // Query for all OP attributes
     const op = queryGraphStore({ store, s: opid });
-
     // Check this is an OP
-    if (op && op[opid][RDF.type] && op[opid][RDF.type].value === ERA.OperationalPoint) {
+    if (op && op[opid][ERA.uopid]) {
         // Query for OP Type
         if (op[opid][ERA.opType]) {
             const type = op[opid][ERA.opType].value;
             const opType = queryGraphStore({
                 store,
                 s: op[opid][ERA.opType]
-            })[type];
+            });
 
             if (opType) {
-                op[opid][ERA.opType] = opType;
+                op[opid][ERA.opType] = opType[type];
                 op[opid][ERA.opType]['@id'] = type;
             }
         }
-
-        // Query for Line information
-        /*if (op[opid][ERA.lineReference]) {
-            const lineRefs = [];
-            const lrIds = Array.isArray(op[opid][ERA.lineReference]) ? op[opid][ERA.lineReference]
-                : [op[opid][ERA.lineReference].value];
-
-            for (const lrId of lrIds) {
-                const lineRef = queryGraphStore({
-                    store,
-                    s: lrId
-                })[lrId.value];
-
-                if (lineRef) {
-                    lineRef['@id'] = lrId.value;
-                    lineRefs.push(lineRef);
-                }
-            }
-            op[opid][ERA.lineReference] = lineRefs;
-        }*/
 
         // Query for OP location
         if (op[opid][WGS84.location]) {
@@ -271,7 +297,7 @@ function getOPInfo(opid, store) {
             op[opid][ERA.inCountry] = cInfo
 
         }
-        
+
         // Attach entity @id
         op[opid]['@id'] = opid;
 
@@ -309,12 +335,12 @@ function getOperationalPointFromMesoElement(me, store) {
     // Get the Operational Point ID
     const op = queryGraphStore({
         store,
-        s: me,
-        p: ERA.hasImplementation
+        p: ERA.hasAbstraction,
+        o: me
     });
 
     if (op) {
-        const opid = op[me][ERA.hasImplementation].value
+        const opid = Object.keys(op)[0];
         // Get the Operational Point info
         return getOPInfo(opid, store);
     } else {
@@ -331,11 +357,17 @@ function getOPFromMicroNetElement(mne, store) {
 }
 
 function getTrackIdFromMicroNetElement(mne, store) {
-    return queryGraphStore({
+    const track = queryGraphStore({
         store: store,
-        s: mne,
-        p: ERA.hasImplementation
-    })[mne][ERA.hasImplementation];
+        p: ERA.hasAbstraction,
+        o: mne
+    });
+
+    if (track) {
+        return Object.keys(track)[0];
+    } else {
+        return null;
+    }
 }
 
 function getCoordsFromOP(op, store) {
@@ -350,16 +382,6 @@ function getCoordsFromOP(op, store) {
 function getCoordsFromLocation(loc, store) {
     const location = queryGraphStore({ store, s: loc })[loc];
     return wktParse(location[GEOSPARQL.asWKT].value).coordinates;
-}
-
-function getCoordsFromMicroNetElement(mne, store) {
-    // Get associated meso NetElement
-    const ne = queryGraphStore({ store, p: ERA.elementPart, o: mne });
-    const mesoNeId = Object.keys(ne)[0];
-    const op = getOperationalPointFromMesoElement(mesoNeId, store);
-    if (op) {
-        return wktParse(op[WGS84.location][GEOSPARQL.asWKT].value).coordinates;
-    }
 }
 
 function getLengthFromMicroNetElement(mne, store) {
@@ -593,25 +615,6 @@ function getLiteralInLanguage(values, language) {
     }
 }
 
-function complementNetworkGraph(NG, graphStore) {
-    for (const [id, node] of NG.nodes) {
-        // Remove unreachable nodes
-        if (node.depEdges.size <= 0 && node.arrEdges.size <= 0) {
-            NG.nodes.delete(id);
-            continue;
-        }
-
-        if (!node.lngLat) {
-            // Add geospatial info to the node (if it is related to an OP)
-            const op = getOperationalPointFromMesoElement(node.mesoElement, graphStore);
-            if (op) {
-                node.lngLat = wktParse(op[WGS84.location][GEOSPARQL.asWKT].value).coordinates
-                NG.nodes.set(id, node);
-            }
-        }
-    }
-}
-
 export default {
     concatToPosition,
     long2Tile,
@@ -624,6 +627,7 @@ export default {
     isValidHttpUrl,
     getTileFrame,
     rebuildQuad,
+    processTopologyQuads,
     queryGraphStore,
     getAllOperationalPoints,
     getAllVehicleTypes,
@@ -633,7 +637,6 @@ export default {
     getOPFromMicroNetElement,
     getCoordsFromOP,
     getCoordsFromLocation,
-    getCoordsFromMicroNetElement,
     getLengthFromMicroNetElement,
     getMicroNetElements,
     getVehicleTypeInfo,
@@ -649,6 +652,5 @@ export default {
     deepClone,
     deepLookup,
     getPropertyDomain,
-    getLiteralInLanguage,
-    complementNetworkGraph
+    getLiteralInLanguage
 };

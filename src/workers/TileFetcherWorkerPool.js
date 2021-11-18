@@ -115,4 +115,8 @@ export class TileFetcherWorkerPool {
     get cache() {
         return this._cache;
     }
+
+    set cache(cache) {
+        this._cache = cache;
+    }
 }

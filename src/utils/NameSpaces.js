@@ -101,7 +101,8 @@ export const ERA = {
     notYetAvailable: `${BASE_URI}notYetAvailable`,
     solNature: `${BASE_URI}solNature`,
     track: `${BASE_URI}track`,
-
+    linkedTo: `${BASE_URI}linkedTo`,
+    partOf: `${BASE_URI}partOf`
 }
 
 export const NAVIGS = {

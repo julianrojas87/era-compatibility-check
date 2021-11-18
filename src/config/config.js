@@ -1,9 +1,9 @@
 
-//const BASE_URI = '${BASE_URI}';
-const BASE_URI = 'http://era.ilabt.imec.be'; // on imec premises
+const BASE_URI = '${BASE_URI}';
+//const BASE_URI = 'http://era.ilabt.imec.be'; // on imec premises
 //const BASE_URI = 'https://data-interop.era.europa.eu'; // on DIGIT premises
-//const ZOOM = '${ZOOM}';
-const ZOOM = '12';
+const ZOOM = '${ZOOM}';
+//const ZOOM = '10';
 
 /**
  * Constants used within the app

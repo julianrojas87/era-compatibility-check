@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import ReactMapboxGl, { Popup, ZoomControl } from "react-mapbox-gl";
+import ReactMapboxGl, { ZoomControl } from "react-mapbox-gl";
 import queryString from 'query-string';
 import { parse as wktParse } from 'wellknown';
 import GraphStore from '@graphy/memory.dataset.fast';
@@ -10,16 +10,17 @@ import { RoutesInfo } from './RoutesInfo';
 import { RoutesExport } from './RoutesExport';
 import { RoutesPermalink } from './RoutesPermalink';
 import { OPInternalView } from './OPInternalView';
+import { OPPopup } from "./OPPopup";
 import { HelpPage } from './HelpPage';
 import RDFetch from '../workers/RDFetch.worker';
 import { TileFetcherWorkerPool } from '../workers/TileFetcherWorkerPool';
 import { NetworkGraph } from '../algorithm/NetworkGraph';
-import { PathFinder } from '../algorithm/PathFinder';
+import PFWorker from '../workers/PathFinder.worker';
 import { findIntersectedTiles } from '../algorithm/VoxTraversal';
 import { verifyCompatibility } from '../algorithm/Compatibility';
 import Utils from '../utils/Utils';
 import loadingGifPath from '../img/loading.gif';
-import { GEOSPARQL, RDFS, SKOS, ERA, a, WGS84 } from '../utils/NameSpaces';
+import { GEOSPARQL, RDFS, ERA } from '../utils/NameSpaces';
 import { getPhrase } from "../utils/Languages";
 import {
     Container,
@@ -29,7 +30,6 @@ import {
     SelectPicker,
     Content,
     Icon,
-    IconButton,
     Alert,
     Divider,
     Loader
@@ -42,7 +42,6 @@ import {
     sidebarHeader,
     stickyMenu,
     mapStyle,
-    StyledPopup,
     LoadingGIF,
     randomRouteStyle
 } from '../styles/Styles';
@@ -62,12 +61,6 @@ const MapBox = ReactMapboxGl({
         "pk.eyJ1Ijoic3VzaGlsZ2hhbWJpciIsImEiOiJjazUyZmNvcWExM2ZrM2VwN2I5amVkYnF5In0.76xcCe3feYPHsDo8eXAguw"
 });
 
-/**
- * PROBLEMS TO SOLVE:
- * 1. Stopping condition to avoid "infinite" queries 
- * 2. Put the algorithm inside a worker (?)
- * 
- **/
 class MainLayout extends Component {
     constructor(props) {
         super(props);
@@ -147,9 +140,14 @@ class MainLayout extends Component {
         if (fromId && fromLat && fromLng && toId && toLat && toLng) {
             try {
                 // Fetch from and to tiles
+                const fromCoords = [parseFloat(fromLng), parseFloat(fromLat)];
+                const toCoords = [parseFloat(toLng), parseFloat(toLat)];
+
                 await Promise.all([
-                    this.fetchTileSet([parseFloat(fromLng), parseFloat(fromLat)]),
-                    this.fetchTileSet([parseFloat(toLng), parseFloat(toLat)])
+                    this.fetchImplementationTile({ coords: fromCoords }),
+                    this.fetchAbstractionTile({ coords: fromCoords }),
+                    this.fetchImplementationTile({ coords: toCoords }),
+                    this.fetchAbstractionTile({ coords: toCoords })
                 ])
 
                 // Set from and to OPs
@@ -328,72 +326,18 @@ class MainLayout extends Component {
                 if (!this.state.calculatingRoutes) {
                     this.setLoaderMessage(getPhrase('fetchingData', this.state.language));
                 }
+
                 const ondata = e => {
-                    /**
-                     * Build rail Network Graph (NG) from RDF quads.
-                     * The NG is a simplified data structure G = (V, E) 
-                     * where V are built from era:NetElement entities and
-                     * E are built from era:NetRelation entities.
-                     * Edge direction is determined from era:elementA, era:elementB 
-                     * and era:navigability predicates.
-                    */
                     const quad = e.data.quad;
                     if (quad) {
-                        if (quad.predicate.value === a && quad.object.value === ERA.NetElement) {
-                            // Got a era:NetElement then create a node in the NG
-                            this.networkGraph.setNode({ id: quad.subject.value });
-                        } else if (quad.predicate.value === ERA.length) {
-                            // Got era:length property then add to the corresponding node in the NG 
-                            this.networkGraph.setNode({
-                                id: quad.subject.value,
-                                length: quad.object.value
-                            });
-                        } else if (quad.predicate.value === ERA.elementPart) {
-                            // Got era:elementPart property then link NG node to its meso-level entity
-                            this.networkGraph.setNode({
-                                id: quad.object.value,
-                                mesoElement: quad.subject.value
-                            });
-                        } else if (quad.predicate.value === ERA.NetRelation) {
-                            // Got a era:NetRelation then create node in the NG
-                            this.networkGraph.setEdge({ id: quad.subject.value });
-                        } else if (quad.predicate.value === ERA.elementA) {
-                            // Got a topological relation (era:elementA) then add corresponding node and edge to NG.
-                            // No edge direction can be inferred yet. We need navigability for it.
-                            this.networkGraph.setEdge({
-                                id: quad.subject.value,
-                                A: quad.object.value
-                            });
-                            this.networkGraph.setNode({ id: quad.object.value })
-                        } else if (quad.predicate.value === ERA.elementB) {
-                            // Got a topological relation (era:elementB) then add corresponding node and edge to NG.
-                            // No edge direction can be inferred yet. We need navigability for it.
-                            this.networkGraph.setEdge({
-                                id: quad.subject.value,
-                                B: quad.object.value
-                            });
-                            this.networkGraph.setNode({ id: quad.object.value })
-                        } else if (quad.predicate.value === ERA.navigability) {
-                            // Got era:navigability then set edges direction accordingly.
-                            this.networkGraph.setEdge({
-                                id: quad.subject.value,
-                                navigability: quad.object.value
-                            });
-                        }
-
-                        // Add the the quad to the RDF graph store
-                        this.graphStore.add(quad);
-                    }
-
-                    if (e.data.done) {
+                        Utils.processTopologyQuads([quad], this.networkGraph)
+                    } else if (e.data.done) {
                         tileFetcher.dispatchEvent(new Event('done'));
                     }
                 }
 
                 const ondone = () => {
                     if (this.tileFetcherPool.allWorkersFree()) {
-                        // Complement with geo info and clean up the NG
-                        Utils.complementNetworkGraph(this.networkGraph, this.graphStore);
                         // Hide loading gifs
                         this.toggleLoading(false);
                         if (!this.state.calculatingRoutes) {
@@ -480,8 +424,8 @@ class MainLayout extends Component {
         const ops = await Utils.getAllOperationalPoints(opgs);
         if (ops) {
             this.setState(state => {
-                return { 
-                    operationalPoints: [...state.operationalPoints, ...ops].sort((a, b) => a.label.localeCompare(b.label)) 
+                return {
+                    operationalPoints: [...state.operationalPoints, ...ops].sort((a, b) => a.label.localeCompare(b.label))
                 }
             });
         }
@@ -500,8 +444,10 @@ class MainLayout extends Component {
         // Get OP geolocation
         const lngLat = Utils.getCoordsFromLocation(opLoc, this.graphStore);
         // Start building network graph.
-        await this.fetchImplementationTile({ coords: lngLat, rebuild: true });
-        await this.fetchAbstractionTile({ coords: lngLat });
+        await Promise.all([
+            this.fetchImplementationTile({ coords: lngLat }),
+            this.fetchAbstractionTile({ coords: lngLat })
+        ]);
 
         if (type === 'from') {
             if (this.state.to) {
@@ -534,18 +480,14 @@ class MainLayout extends Component {
         });
     }
 
-    fetchTileSet = async (tile, asXY) => {
-        await this.fetchImplementationTile({ coords: tile, asXY });
-        await this.fetchAbstractionTile({ coords: tile, asXY });
-    }
-
     fromTo = async () => {
         // Data is already being fetched so do nothing in the meantime
         if (this.state.loading) return false;
 
         // Get reachable micro NetElements of FROM Operational Point
         const fromMicroNEs = Utils.getMicroNetElements(this.state.from, this.graphStore)
-            .filter(ne => this.networkGraph.nodes.has(ne.value));
+            .filter(ne => this.networkGraph.nodes.has(ne.value))
+            .map(ne => ne.value);
         const fromOp = Utils.getOPInfo(this.state.from, this.graphStore);
 
         if (fromMicroNEs.length === 0) {
@@ -563,7 +505,8 @@ class MainLayout extends Component {
 
         // Get reachable micro NetElements of TO Operational Point
         const toMicroNEs = Utils.getMicroNetElements(this.state.to, this.graphStore)
-            .filter(ne => this.networkGraph.nodes.has(ne.value));
+            .filter(ne => this.networkGraph.nodes.has(ne.value))
+            .map(ne => ne.value);
         const toOp = Utils.getOPInfo(this.state.to, this.graphStore);
 
         if (toMicroNEs.length === 0) {
@@ -595,61 +538,69 @@ class MainLayout extends Component {
 
         // Gather all the tiles intersected by the straight line between origin and destination
         const intersectedTiles = findIntersectedTiles(this.from.lngLat, this.to.lngLat);
-        if (intersectedTiles.length < 10) {
+        if (intersectedTiles.length < 40) {
             await Promise.all(intersectedTiles.map(tile => {
-                return this.fetchTileSet(tile, true);
+                return this.fetchAbstractionTile({ coords: tile, asXY: true })
             }));
         }
 
-        // Setup route planner object
-        this.pathFinder = new PathFinder({
-            networkGraph: this.networkGraph,
-            graphStore: this.graphStore,
-            fetchAbstractionTile: this.fetchAbstractionTile,
-            fetchImplementationTile: this.fetchImplementationTile,
-            tileCache: this.tileFetcherPool.cache,
-            tilesBaseURI: ABSTRACTION_TILES,
-            zoom: ABSTRACTION_ZOOM,
-            //debug: true
-        });
+        // Setup path finder worker object
+        this.pathFinder = new PFWorker();
+        const t0 = new Date();
 
-        // Function called when a path is found
-        this.pathFinder.on('path', path => {
-            if (path) {
-                this.setState(state => {
-                    return {
-                        routes: [...state.routes, {
-                            path,
-                            renderNodes: false,
-                            style: randomRouteStyle()
-                        }]
-                    };
-                }, () => { this.renderOperationalPoints() });
+        // Message handler for Web Worker messages
+        this.pathFinder.addEventListener('message', e => {
+            if (e.data.paths) {
+                console.log('Route planning query took: ', new Date() - t0, 'ms');
+                // Rebuild Network Graph to keep the data fetched during the route calculation
+                this.networkGraph = new NetworkGraph();
+                this.networkGraph.nodes = e.data.topologyNodes;
+                // Update tile cache
+                this.tileFetcherPool.cache = e.data.tileCache;
+
+                if (e.data.paths.length > 0) {
+                    // Report found routes
+                    this.setState({
+                        routes: e.data.paths.map(path => {
+                            return {
+                                path,
+                                renderNodes: false,
+                                style: randomRouteStyle()
+                            }
+                        })
+                    });
+                } else {
+                    // There are no routes between the given OPs
+                    Alert.warning('There are no possible routes between these two locations', 10000);
+                }
+
+                // Route planner finished, remove tiles and loading data signals
+                this.setState({ showTileFrames: false });
+                this.setLoaderMessage(null);
+                this.toggleRouteCalculation(false);
+                // Kill worker
+                this.pathFinder.terminate();
+                this.pathFinder = null;
+            } else {
+                // A tile was fetched, draw it on the map
+                this.drawTileFrame(e.data.coords, ABSTRACTION_ZOOM);
             }
         });
 
-        // Function called when the route planner has finished
-        this.pathFinder.on('done', () => {
-            // Route planner finished, remove tiles and loading data signals
-            this.setState({ showTileFrames: false });
-            this.setLoaderMessage(null);
-            this.toggleRouteCalculation(false);
+        // Kick-off route calculation process
+        this.pathFinder.postMessage({
+            from: this.from,
+            to: this.to,
+            K: this.state.maxRoutes,
+            topologyNodes: this.networkGraph.nodes,
+            tileCache: this.tileFetcherPool.cache,
+            tilesBaseURI: ABSTRACTION_TILES,
+            zoom: ABSTRACTION_ZOOM,
+            debug: false
         });
-
+        // Start loading animations
         this.toggleRouteCalculation(true);
         this.setLoaderMessage(getPhrase('calculatingRoutes', this.state.language));
-
-        // Start the route planning process
-        const result = await this.pathFinder.yen(this.from, this.to, this.state.maxRoutes);
-
-        if (!result && !this.pathFinder.die) {
-            // There are no routes between the given OPs
-            Alert.warning('There are no possible routes between these two locations', 10000);
-            this.setState({ showTileFrames: false });
-            this.toggleRouteCalculation(false);
-            this.setLoaderMessage(null);
-        }
-
     }
 
     checkCompatibility = route => {
@@ -680,7 +631,11 @@ class MainLayout extends Component {
     }
 
     clearRoutes(param) {
-        if (this.pathFinder) this.pathFinder.die = true;
+        if (this.pathFinder) {
+            // Kill web worker
+            this.pathFinder.terminate();
+            this.pathFinder = null;
+        }
 
         if (param === 'from') {
             this.from = {};
@@ -720,7 +675,7 @@ class MainLayout extends Component {
             bounds: map.getBounds()
         }, () => {
             if (!this.state.calculatingRoutes) {
-                this.fetchImplementationTile({ coords: [center.lng, center.lat], rebuild: true });
+                this.fetchImplementationTile({ coords: [center.lng, center.lat] });
             }
         });
     }
@@ -731,7 +686,7 @@ class MainLayout extends Component {
             bounds: map.getBounds()
         }, () => {
             if (!this.state.calculatingRoutes) {
-                this.fetchImplementationTile({ coords: [center.lng, center.lat], rebuild: true });
+                this.fetchImplementationTile({ coords: [center.lng, center.lat] });
             }
         });
     }
@@ -899,7 +854,6 @@ class MainLayout extends Component {
                                     to={to}
                                     routeExpansionHandler={this.routeExpansionHandler}
                                     setLoaderMessage={this.setLoaderMessage}
-                                    fetchImplementationTile={this.fetchImplementationTile}
                                     compatibilityVehicleType={compatibilityVehicleType}
                                     checkCompatibility={this.checkCompatibility}
                                     toggleInternalView={this.toggleInternalView} />
@@ -944,59 +898,11 @@ class MainLayout extends Component {
                                 ></OperationalPointsLayer>
 
                                 {popup && (
-                                    <Popup coordinates={popup.lngLat}>
-                                        <IconButton icon={<Icon icon="close" />}
-                                            style={{ float: 'right' }} onClick={this.closePopup} />
-                                        <StyledPopup>
-                                            <h2>
-                                                <a href={popup['@id']} target='_blank'>
-                                                    {Utils.getLiteralInLanguage(popup[RDFS.label])}
-                                                </a>
-                                            </h2>
-                                            <div>
-                                                <strong>
-                                                    <a href={ERA.uopid} target='_blank'>{getPhrase('rinfId', language)}: </a>
-                                                </strong>
-                                                {Utils.getLiteralInLanguage(popup[ERA.uopid], language)}
-                                            </div>
-                                            {popup[ERA.tafTapCode] && (
-                                                <div>
-                                                    <strong>
-                                                        <a href={ERA.tafTapCode} target='_blank'>{getPhrase('tafTapCode', language)}: </a>
-                                                    </strong>
-                                                    {Array.isArray(popup[ERA.tafTapCode]) ? popup[ERA.tafTapCode].map(c => c.value).join(', ')
-                                                        : popup[ERA.tafTapCode].value}
-                                                </div>
-                                            )}
-                                            <div>
-                                                <strong>
-                                                    <a href={ERA.opType} target="_blank">{getPhrase('type', language)}: </a>
-                                                    <a href={popup[ERA.opType]['@id']} target="_blank">
-                                                        {Utils.getLiteralInLanguage(popup[ERA.opType][SKOS.prefLabel], language)}
-                                                    </a>
-                                                </strong>
-                                            </div>
-                                            <div>
-                                                <strong>
-                                                    <a href={WGS84.location} target='_blank'>{getPhrase('geographicalLocation', language)}: </a>
-                                                </strong>
-                                                {popup[WGS84.location][GEOSPARQL.asWKT].value}
-                                            </div>
-                                            <div>
-                                                <strong>
-                                                    <a href={ERA.inCountry} target='_blank'>{getPhrase('country', language)}: </a>
-                                                    {Object.keys(popup[ERA.inCountry]).map((c, i) => {
-                                                        const sep = i < Object.keys(popup[ERA.inCountry]).length - 1 ? ', ' : ''; 
-                                                        return (
-                                                            <a key={c} href={c} target='_blank'>
-                                                                {Utils.getLiteralInLanguage(popup[ERA.inCountry][c][SKOS.prefLabel], language) + sep}
-                                                            </a>
-                                                        );
-                                                    })}
-                                                </strong>
-                                            </div>
-                                        </StyledPopup>
-                                    </Popup>
+                                    <OPPopup
+                                        popup={popup}
+                                        language={language}
+                                        closePopup={this.closePopup}>
+                                    </OPPopup>
                                 )}
 
                                 <ZoomControl position={'top-left'} />
