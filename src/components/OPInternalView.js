@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Alert } from "rsuite";
 import { RDFS, ERA } from "../utils/NameSpaces";
-import { FACETED_BASE_URI } from "../config/config";
 import Utils from "../utils/Utils";
 import { Graph } from "react-d3-graph";
 
@@ -72,7 +71,7 @@ export const OPInternalView = ({
         for (const np of nodePorts) {
             const node = {
                 id: decodeURIComponent(np),
-                label: <a href={FACETED_BASE_URI + encodeURIComponent(np)} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>
+                label: <a href={np} target='_blank'>{np.substring(np.indexOf('#') + 1)}</a>
             };
 
             // Check if this is a NodePort of the route
@@ -87,7 +86,7 @@ export const OPInternalView = ({
                     routeLinks.push({
                         source: decodeURIComponent(ivp.nodes[index]),
                         target: decodeURIComponent(ivp.nodes[index + 1]),
-                        label: <a href={FACETED_BASE_URI + encodeURIComponent(inl)} target='_blank'>{inl.substring(inl.indexOf('#') + 1)}</a>,
+                        label: <a href={inl} target='_blank'>{inl.substring(inl.indexOf('#') + 1)}</a>,
                         color: pathColor,
                         strokeWidth: 2,
                         type: "CURVE_SMOOTH"
@@ -153,7 +152,6 @@ export const OPInternalView = ({
                     routePath.classList.add("route-link");
                 });
             });
-
     }
 
     const onClickNode = nodeId => {
@@ -173,7 +171,7 @@ export const OPInternalView = ({
                         links.push({
                             source: decodeURIComponent(nodeId),
                             target: decodeURIComponent(inl[ERA.endPort]),
-                            label: <a href={FACETED_BASE_URI + encodeURIComponent(inl["@id"])} target='_blank'>{inl["@id"].substring(inl["@id"].indexOf('#') + 1)}</a>,
+                            label: <a href={inl["@id"]} target='_blank'>{inl["@id"].substring(inl["@id"].indexOf('#') + 1)}</a>,
                             type: "CURVE_SMOOTH"
                         });
                     }

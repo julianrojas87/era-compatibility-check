@@ -1,6 +1,10 @@
-import { stringQuadToQuad } from 'rdf-string';
-import { namedNode, literal } from '@rdfjs/data-model';
-import { a, ERA, GEOSPARQL, RDFS } from './NameSpaces';
+import wktParse from 'wellknown';
+import * as rdfString from 'rdf-string';
+import rdfjs from '@rdfjs/data-model';
+import { a, ERA, GEOSPARQL, WGS84, RDFS, OWL, RDF } from './NameSpaces.js';
+
+const { stringQuadToQuad } = rdfString;
+const { namedNode, literal, blankNode } = rdfjs;
 
 function long2Tile(long, zoom) {
     return (Math.floor((long + 180) / 360 * Math.pow(2, zoom)));
@@ -17,6 +21,10 @@ function tile2long(x, z) {
 function tile2lat(y, z) {
     var n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
     return (180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))));
+}
+
+function longLat2Tile(lngLat, z) {
+    return `${long2Tile(lngLat[0], z)}/${lat2Tile(lngLat[1], z)}`;
 }
 
 function isValidHttpUrl(string) {
@@ -63,18 +71,73 @@ function rebuildQuad(str) {
     return stringQuadToQuad(str);
 }
 
+function processTopologyQuads(quads, NG) {
+    for (const quad of quads) {
+        /**
+         * Build rail Network Graph (NG) from RDF quads.
+         * The NG is a data structure G = (V, E) 
+         * where V are built from era:NetElement entities and
+         * E are built from era:NetRelation entities,
+         * which have been simplified by the SPARQL CONSTRUCT queries
+         * to simple entities that are era:linkedTo each other.
+         * 
+        */
+        if (quad.predicate.value === GEOSPARQL.asWKT) {
+            // Got node geo coordinates
+            NG.setNode({
+                id: quad.subject.value,
+                lngLat: wktParse(quad.object.value).coordinates
+            });
+        } else if (quad.predicate.value === ERA.length) {
+            // Got era:length property
+            NG.setNode({
+                id: quad.subject.value,
+                length: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.lineNationalId) {
+            // Got era:lineNationalId property
+            NG.setNode({
+                id: quad.subject.value,
+                lineNationalId: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.partOf) {
+            // Got era:partOf property then link NG node to its meso-level entity
+            NG.setNode({
+                id: quad.subject.value,
+                mesoElement: quad.object.value
+            });
+        } else if (quad.predicate.value === ERA.linkedTo) {
+            // Got a era:linkedTo property that indicates a reachable node
+            NG.setNode({
+                id: quad.subject.value,
+                nextNode: quad.object.value
+            });
+        }
+    }
+}
+
 function queryGraphStore(params) {
     let res = {};
+    let sub = null;
     let obj = null;
 
-    // Handle Object being a NamedNode or a Literal
+    // Handle Subject being a NamedNode or a BlankNode
+    if (params.s) {
+        if (params.s.value) {
+            sub = params.s.value.startsWith('n3-') ? blankNode(params.s.value) : namedNode(params.s.value);
+        } else {
+            sub = params.s.startsWith('n3-') ? blankNode(params.s) : namedNode(params.s);
+        }
+    }
+
+    // Handle Object being a NamedNode, Literal or BlankNode
     if (params.o) {
-        obj = /(https?):\/\//.test(params.o) ? namedNode(params.o) : literal(params.o);
+        obj = /(https?):\/\//.test(params.o) ? namedNode(params.o) : params.o.startsWith('n3-') ? blankNode(params.o) : literal(params.o);
     }
 
     // Execute query
     const iterator = params.store.match(
-        params.s ? namedNode(params.s) : null,
+        sub,
         params.p ? namedNode(params.p) : null,
         obj
     );
@@ -86,26 +149,76 @@ function queryGraphStore(params) {
                 let path = res[q.subject.value][q.predicate.value];
                 if (path) {
                     if (Array.isArray(path)) {
-                        if (!path.includes(q.object.value)) {
-                            res[q.subject.value][q.predicate.value].push(q.object.value);
+                        if (path.findIndex(o => o.value === q.object.value && o.language === q.object.language) < 0) {
+                            res[q.subject.value][q.predicate.value].push(q.object);
                         }
                     } else {
-                        if (path !== q.object.value) {
-                            const arr = [path, q.object.value];
+                        if (path.value !== q.object.value) {
+                            const arr = [path, q.object];
                             res[q.subject.value][q.predicate.value] = arr;
                         }
                     }
                 } else {
-                    res[q.subject.value][q.predicate.value] = q.object.value;
+                    res[q.subject.value][q.predicate.value] = q.object;
                 }
 
             } else {
-                res[q.subject.value] = { [q.predicate.value]: q.object.value };
+                res[q.subject.value] = { [q.predicate.value]: q.object };
             }
         }
         return res;
     } else {
         return null;
+    }
+}
+
+function getPropertyDomain(property, store) {
+    const domain = queryGraphStore({ s: property, p: RDFS.domain, store })
+
+    if (!domain) return [];
+
+    const domainBN = domain[property][RDFS.domain];
+
+    if (domainBN && domainBN.startsWith('n3-')) {
+        const domains = [];
+        const unionBN = queryGraphStore({ s: domainBN, p: OWL.unionOf, store })[domainBN][OWL.unionOf];
+        let domainList = queryGraphStore({ s: unionBN, store })[unionBN];
+        domains.push(domainList[RDF.first]);
+
+        while (domainList[RDF.rest] != RDF.nil) {
+            domainList = queryGraphStore({ s: domainList[RDF.rest], store })[domainList[RDF.rest]];
+            domains.push(domainList[RDF.first]);
+        }
+
+        return domains
+    } else {
+        return [domainBN];
+    }
+}
+
+async function getAllOperationalPoints(store) {
+    const ops = queryGraphStore({
+        store,
+        p: RDFS.label
+    });
+
+    if (ops) {
+        return await Promise.all(Object.keys(ops).map(async op => {
+            const opp = queryGraphStore({
+                store,
+                s: op
+            });
+
+            const label = opp[op][RDFS.label];
+
+            return {
+                value: op,
+                label: `${Array.isArray(label) ? label.map(l => l.value).join(' / ')
+                    : label.value} - ${opp[op][ERA.uopid].value}`,
+                location: Array.isArray(opp[op][WGS84.location]) ? opp[op][WGS84.location][0].value
+                    : opp[op][WGS84.location].value
+            }
+        }));
     }
 }
 
@@ -123,37 +236,186 @@ async function getAllVehicleTypes(store) {
         });
 
         return {
-            label: `${vh[v][ERA.typeVersionNumber]} - ${vh[v][RDFS.label]}`,
+            label: `${vh[v][ERA.typeVersionNumber].value} - ${vh[v][RDFS.label] ? vh[v][RDFS.label].value : ''}`,
             value: v
         }
     }));
 }
 
-async function getAllVehicles(store) {
-    const vhs = queryGraphStore({
-        store: store,
-        p: a,
-        o: ERA.Vehicle
-    });
+function getOPInfo(opid, store) {
+    // Query for all OP attributes
+    const op = queryGraphStore({ store, s: opid });
+    // Check this is an OP
+    if (op && op[opid][ERA.uopid]) {
+        // Query for OP Type
+        if (op[opid][ERA.opType]) {
+            const type = op[opid][ERA.opType].value;
+            const opType = queryGraphStore({
+                store,
+                s: op[opid][ERA.opType]
+            });
 
-    return await Promise.all(Object.keys(vhs).map(async v => {
-        const vh = queryGraphStore({
-            store: store,
-            s: v
-        });
-
-        return {
-            label: `${vh[v][ERA.vehicleNumber]} - ${vh[v][ERA.vehicleSeries] || ''}`,
-            value: v
+            if (opType) {
+                op[opid][ERA.opType] = opType[type];
+                op[opid][ERA.opType]['@id'] = type;
+            }
         }
-    }));
+
+        // Query for OP location
+        if (op[opid][WGS84.location]) {
+            const l = Array.isArray(op[opid][WGS84.location]) ? op[opid][WGS84.location][0].value
+                : op[opid][WGS84.location].value;
+            const loc = queryGraphStore({
+                store,
+                s: l
+            })[l];
+
+            if (loc) {
+                op[opid][WGS84.location] = loc;
+                op[opid][WGS84.location]['@id'] = l;
+            }
+        }
+
+        // Query for country info
+        if (op[opid][ERA.inCountry]) {
+            const cIds = Array.isArray(op[opid][ERA.inCountry]) ? op[opid][ERA.inCountry] : [op[opid][ERA.inCountry]];
+            const cInfo = {};
+
+            cIds.forEach(cId => {
+                const country = queryGraphStore({
+                    store,
+                    s: cId.value
+                });
+
+                if (country) {
+                    cInfo[cId.value] = country[cId.value];
+                } else {
+                    cInfo[cId.value] = null;
+                }
+            });
+
+            op[opid][ERA.inCountry] = cInfo
+
+        }
+
+        // Attach entity @id
+        op[opid]['@id'] = opid;
+
+        return op[opid];
+    }
 }
 
-function getVehicleInfo(v, store) {
-    const vh = queryGraphStore({
-        store: store,
-        s: v
+function getCountryInfo(country, store) {
+    const c = queryGraphStore({ store, s: country });
+    if (c[country]) {
+        c[country]['@id'] = country;
+        return c[country];
+    }
+}
+
+
+function getOPInfoFromLocation(geometry, lngLat, graphStore) {
+    // Query for OP ID
+    const opId = queryGraphStore({
+        store: graphStore,
+        p: WGS84.location,
+        o: geometry
     });
+
+    if (opId) {
+        // Query for all OP attributes
+        const op = getOPInfo(Object.keys(opId)[0], graphStore);
+        if (lngLat) op.lngLat = [lngLat.lng, lngLat.lat];
+
+        return op;
+    }
+}
+
+function getOperationalPointFromMesoElement(me, store) {
+    // Get the Operational Point ID
+    const op = queryGraphStore({
+        store,
+        p: ERA.hasAbstraction,
+        o: me
+    });
+
+    if (op) {
+        const opid = Object.keys(op)[0];
+        // Get the Operational Point info
+        return getOPInfo(opid, store);
+    } else {
+        return null;
+    }
+}
+
+function getOPFromMicroNetElement(mne, store) {
+    // Get associated meso NetElement
+    const ne = queryGraphStore({ store, p: ERA.elementPart, o: mne });
+    const mesoNeId = Object.keys(ne)[0];
+    // Get associated OP if any
+    return getOperationalPointFromMesoElement(mesoNeId, store);
+}
+
+function getTrackIdFromMicroNetElement(mne, store) {
+    const track = queryGraphStore({
+        store: store,
+        p: ERA.hasAbstraction,
+        o: mne
+    });
+
+    if (track) {
+        return Object.keys(track)[0];
+    } else {
+        return null;
+    }
+}
+
+function getCoordsFromOP(op, store) {
+    const loc = queryGraphStore({ store, s: op, p: WGS84.location });
+    if (loc) {
+        const l = loc[op][WGS84.location];
+        return getCoordsFromLocation(Array.isArray(l) ? l[0].value : l.value, store);
+    }
+    return null;
+}
+
+function getCoordsFromLocation(loc, store) {
+    const location = queryGraphStore({ store, s: loc })[loc];
+    return wktParse(location[GEOSPARQL.asWKT].value).coordinates;
+}
+
+function getLengthFromMicroNetElement(mne, store) {
+    // Get micro NetElement properties
+    const microNe = queryGraphStore({ store, s: mne });
+    return parseFloat(microNe[mne][ERA.length].value);
+}
+
+function getMicroNetElements(op, store) {
+    // Get Operational Point meso NetElement
+    const mesoNe = queryGraphStore({
+        store: store,
+        s: op,
+        p: ERA.hasAbstraction
+    })[op][ERA.hasAbstraction].value;
+
+    // Query for all micro NetElements associated to this meso NetElement
+    const queryNps = queryGraphStore({
+        store: store,
+        s: mesoNe,
+        p: ERA.elementPart
+    });
+
+    // There are disconnected NetElements
+    if (queryNps) {
+        return Array.isArray(queryNps[mesoNe][ERA.elementPart])
+            ? queryNps[mesoNe][ERA.elementPart] : [queryNps[mesoNe][ERA.elementPart]];
+    } else {
+        return [];
+    }
+}
+
+function getVehicleTypeInfo(v, store) {
+    const vh = queryGraphStore({ store, s: v });
 
     if (vh && vh[v]) {
         vh[v]['@id'] = v;
@@ -161,54 +423,23 @@ function getVehicleInfo(v, store) {
     }
 }
 
-function getMicroNodeInfo(geometry, lngLat, graphStore) {
-    // Query for MicroNode Implementation ID
-    const mnImplId = queryGraphStore({
-        store: graphStore,
-        p: GEOSPARQL.hasGeometry,
-        o: geometry
-    });
+function getTrackInfo(t, store) {
+    const track = queryGraphStore({ store, s: t });
 
-    if (mnImplId) {
-        // Query for all MicroNode attributes
-        const sid = Object.keys(mnImplId)[0];
-        const mnImpl = queryGraphStore({
-            store: graphStore,
-            s: sid
-        });
-        // Query for MicroNode Type
-        const type = queryGraphStore({
-            store: graphStore,
-            s: mnImpl[sid][ERA.opType]
-        });
+    if (track && track[t]) {
+        track[t]['@id'] = t;
 
-        mnImpl[sid]['@id'] = sid;
-        if (lngLat) mnImpl[sid].lngLat = [lngLat.lng, lngLat.lat];
-        mnImpl[sid][ERA.opType] = type[mnImpl[sid][ERA.opType]];
-        mnImpl[sid][ERA.opType]['@id'] = Object.keys(type)[0];
+        // Expand train detection system (if any)
+        if (track[t][ERA.trainDetectionSystem]) {
+            const tdsId = track[t][ERA.trainDetectionSystem].value;
+            const tds = queryGraphStore({ s: tdsId, store })[tdsId];
+            if (tds) {
+                track[t][ERA.trainDetectionSystem] = tds;
+                track[t][ERA.trainDetectionSystem]['@id'] = tdsId;
+            }
+        }
 
-        return mnImpl[sid];
-    }
-}
-
-function getMicroNodePorts(store, mn) {
-    // Get Operational Point abstraction ID
-    const mna = queryGraphStore({
-        store: store,
-        s: mn,
-        p: ERA.hasAbstraction
-    })[mn][ERA.hasAbstraction];
-
-    // Query for all the NodePorts associated to this MicroNode
-    const queryNps = queryGraphStore({
-        store: store,
-        p: ERA.belongsToNode,
-        o: mna
-    });
-
-    // There are disconnected MicroNodes
-    if (queryNps) {
-        return Object.keys(queryNps);
+        return track[t];
     }
 }
 
@@ -243,69 +474,9 @@ function getAllInternalNodeLinksFromNodePort(np, store) {
                 });
             }
         }
-
-
     }
 
     return inls;
-}
-
-function getMicroNodeFromNodePort(np, store) {
-    // Get the associated MicroNode
-    const mn = queryGraphStore({
-        store: store,
-        s: np,
-        p: ERA.belongsToNode
-    })[np][ERA.belongsToNode];
-
-    if (Array.isArray(mn)) {
-        return mn[0];
-    } else {
-        return mn;
-    }
-}
-
-function getOperationalPointFromMicroNode(mn, store) {
-    // Get the Operational Point ID
-    const opid = queryGraphStore({
-        store: store,
-        s: mn,
-        p: ERA.hasImplementation
-    });
-
-    if (opid) {
-        const op = opid[mn][ERA.hasImplementation]
-        // Get the Operational Point info
-        const opObj = queryGraphStore({
-            store: store,
-            s: op
-        });
-
-        if (opObj) {
-            opObj[op]['@id'] = op;
-            // Query for MicroNode Type
-            const type = queryGraphStore({
-                store: store,
-                s: opObj[op][ERA.opType]
-            });
-
-            opObj[op][ERA.opType] = type[opObj[op][ERA.opType]];
-            opObj[op][ERA.opType]['@id'] = Object.keys(type)[0];
-
-            return opObj[op];
-        } else {
-            return null;
-        }
-    } else {
-        return null;
-    }
-}
-
-function getNodePortInfo(np, store) {
-    return queryGraphStore({
-        store: store,
-        s: np
-    })[np];
 }
 
 function isMicroLink(ml, store) {
@@ -328,14 +499,6 @@ function isInternalNodeLink(inl, store) {
     });
 
     return q !== null;
-}
-
-function getTrackFromMicroLink(ml, store) {
-    return queryGraphStore({
-        store: store,
-        s: ml,
-        p: ERA.hasImplementation
-    })[ml][ERA.hasImplementation];
 }
 
 function isNodePortIncoming(np, store) {
@@ -365,9 +528,9 @@ function getMicroLinkFromNodePort(np, store) {
     if (links) {
         for (const l of Object.keys(links)) {
             if (isMicroLink(l, store)) {
-                return queryGraphStore({ 
-                    store: store, 
-                    s: l 
+                return queryGraphStore({
+                    store: store,
+                    s: l
                 })[l]
             }
         }
@@ -409,232 +572,85 @@ function deepClone(obj) {
     throw new Error('Unable to copy object! Its type isn\'t supported');
 }
 
-function checkCompatibility(t, vehicle, store, includesVehicle) {
-    const track = queryGraphStore({
-        store: store,
-        s: t
-    })[t];
-    track['@id'] = t;
-    const report = {};
-    let vehicleType = vehicle;
-
-    if (includesVehicle) {
-        vehicleType = vehicle[ERA.vehicleType];
-    }
-
-    // Check Gauging
-    const gauging = compareEqualValues(track[ERA.gaugingProfile], vehicleType[ERA.gaugingProfile]);
-    report[ERA.gaugingProfile] = {
-        predicates: [ERA.gaugingProfile],
-        compatible: gauging && gauging.length > 0,
-        values: {
-            track: track[ERA.gaugingProfile],
-            vehicle: vehicleType[ERA.gaugingProfile]
+function deepLookup(obj, paths) {
+    if (paths.length === 1) {
+        return obj[paths[0]];
+    } else {
+        const path = paths.shift();
+        if (obj[path]) {
+            deepLookup(obj[path], paths);
+        } else {
+            return null;
         }
     }
-
-    // Check Train detection system
-    const tds = compareEqualValues(track[ERA.trainDetectionSystem], vehicleType[ERA.trainDetectionSystem]);
-    report[ERA.trainDetectionSystem] = {
-        predicates: [ERA.trainDetectionSystem],
-        compatible: tds && tds.length > 0,
-        values: {
-            track: track[ERA.trainDetectionSystem],
-            vehicle: vehicleType[ERA.trainDetectionSystem]
-        }
-    }
-
-    // Check Hot axle box detection
-    const habd = track[ERA.hasHotAxleBoxDetector] && vehicleType[ERA.axleBearingConditionMonitoring];
-    report[ERA.hasHotAxleBoxDetector] = {
-        predicates: [ERA.hasHotAxleBoxDetector, ERA.axleBearingConditionMonitoring],
-        compatible: habd,
-        values: {
-            track: track[ERA.hasHotAxleBoxDetector],
-            vehicle: vehicleType[ERA.axleBearingConditionMonitoring]
-        }
-    }
-
-    // Check Rail inclination
-    const ri = compareEqualValues(track[ERA.railInclination], vehicleType[ERA.railInclination]);
-    report[ERA.railInclination] = {
-        predicates: [ERA.railInclination],
-        compatible: ri,
-        values: {
-            track: track[ERA.railInclination],
-            vehicle: vehicleType[ERA.railInclination]
-        }
-    }
-
-    // Check Wheelset gauge
-    const wsg = compareEqualValues(track[ERA.wheelSetGauge], vehicleType[ERA.wheelSetGauge]);
-    report[ERA.wheelSetGauge] = {
-        predicates: [ERA.wheelSetGauge],
-        compatible: wsg && wsg.length > 0,
-        values: {
-            track: track[ERA.wheelSetGauge],
-            vehicle: vehicleType[ERA.wheelSetGauge]
-        }
-    }
-
-    // Check Minimum wheel diameter
-    const mwd = parseInt(vehicleType[ERA.minimumWheelDiameter]) >= parseInt(track[ERA.minimumWheelDiameter]);
-    report[ERA.minimumWheelDiameter] = {
-        predicates: [ERA.minimumWheelDiameter],
-        compatible: mwd,
-        values: {
-            track: track[ERA.minimumWheelDiameter],
-            vehicle: vehicleType[ERA.minimumWheelDiameter]
-        }
-    }
-
-    // Check Minimum horizontal radius
-    const mhr = parseInt(track[ERA.minimumHorizontalRadius]) >= parseInt(vehicleType[ERA.minimumHorizontalRadius]);
-    report[ERA.minimumHorizontalRadius] = {
-        predicates: [ERA.minimumHorizontalRadius],
-        compatible: mhr,
-        values: {
-            track: track[ERA.minimumHorizontalRadius],
-            vehicle: vehicleType[ERA.minimumHorizontalRadius]
-        }
-    }
-
-    // Check min temperature
-    const mint = parseInt(vehicleType[ERA.minimumTemperature]) <= parseInt(track[ERA.minimumTemperature]);
-    report[ERA.minimumTemperature] = {
-        predicates: [ERA.minimumTemperature],
-        compatible: mint,
-        values: {
-            track: track[ERA.minimumTemperature],
-            vehicle: vehicleType[ERA.minimumTemperature]
-        }
-    }
-
-    // Check max temperature
-    const maxt = parseInt(vehicleType[ERA.maximumTemperature]) >= parseInt(track[ERA.maximumTemperature]);
-    report[ERA.maximumTemperature] = {
-        predicates: [ERA.maximumTemperature],
-        compatible: maxt,
-        values: {
-            track: track[ERA.maximumTemperature],
-            vehicle: vehicleType[ERA.maximumTemperature]
-        }
-    }
-
-    // Check energy supply system
-    const ess = compareEqualValues(track[ERA.energySupplySystem], vehicleType[ERA.energySupplySystem]);
-    report[ERA.energySupplySystem] = {
-        predicates: [ERA.energySupplySystem],
-        compatible: ess,
-        values: {
-            track: track[ERA.energySupplySystem],
-            vehicle: vehicleType[ERA.energySupplySystem]
-        }
-    }
-
-    // Check max current at standstill per pantograph
-    const mcsp = parseFloat(vehicleType[ERA.maxCurrentStandstillPantograph]) <= parseFloat(track[ERA.maxCurrentStandstillPantograph]);
-    report[ERA.maxCurrentStandstillPantograph] = {
-        predicates: [ERA.maxCurrentStandstillPantograph],
-        compatible: mcsp,
-        values: {
-            track: parseFloat(track[ERA.maxCurrentStandstillPantograph]),
-            vehicle: parseFloat(vehicleType[ERA.maxCurrentStandstillPantograph])
-        }
-    }
-
-    // Check min contact wire height
-    const mincwh = parseFloat(vehicleType[ERA.minimumContactWireHeight]) <= parseFloat(track[ERA.minimumContactWireHeight]);
-    report[ERA.minimumContactWireHeight] = {
-        predicates: [ERA.minimumContactWireHeight],
-        compatible: mincwh,
-        values: {
-            track: parseFloat(track[ERA.minimumContactWireHeight]),
-            vehicle: parseFloat(vehicleType[ERA.minimumContactWireHeight])
-        }
-    }
-
-    // Check max contact wire height
-    const maxcwh = parseFloat(vehicleType[ERA.maximumContactWireHeight]) >= parseFloat(track[ERA.maximumContactWireHeight]);
-    report[ERA.maximumContactWireHeight] = {
-        predicates: [ERA.maximumContactWireHeight],
-        compatible: maxcwh,
-        values: {
-            track: parseFloat(track[ERA.maximumContactWireHeight]),
-            vehicle: parseFloat(vehicleType[ERA.maximumContactWireHeight])
-        }
-    }
-
-    // Check contact strip materials
-    const csm = compareEqualValues(track[ERA.contactStripMaterial], vehicleType[ERA.contactStripMaterial]);
-    report[ERA.contactStripMaterial] = {
-        predicates: [ERA.contactStripMaterial],
-        compatible: csm,
-        values: {
-            track: track[ERA.contactStripMaterial],
-            vehicle: vehicleType[ERA.contactStripMaterial]
-        }
-    }
-
-    // Noise restrictions
-    const nrs = track[ERA.isQuietRoute] === 'false' || (track[ERA.isQuietRoute] === 'true'
-        && vehicle[ERA.operationalRestriction] !== 'http://era.europa.eu/concepts/restrictions#2.7.7');
-    report[ERA.operationalRestriction] = {
-        predicates: [ERA.operationalRestriction, ERA.isQuietRoute],
-        compatible: nrs,
-        values: {
-            track: track[ERA.isQuietRoute],
-            vehicle: vehicle[ERA.operationalRestriction]
-        }
-    }
-    return report;
 }
 
-function compareEqualValues(p1, p2) {
-    if (Array.isArray(p1)) {
-        if (Array.isArray(p2)) {
-            return p1.filter(p => p2.includes(p));
+function concatToPosition(fullList, partList, page, size) {
+    const newList = [...fullList];
+    let position = page * size;
+
+    for (let i = 0; i < size; i++) {
+        if (partList[i]) {
+            newList[position + i] = partList[i];
+        }
+    }
+
+    return newList;
+}
+
+function getLiteralInLanguage(values, language) {
+    if (!values) {
+        return '';
+    } else if (Array.isArray(values)) {
+        let i = values.findIndex(v => v.language === language);
+        if (i < 0) {
+            i = values.findIndex(v => v.language === 'en');
+            if (i < 0) return values[0].value;
+            return values[i].value;
         } else {
-            if (p1.includes(p2)) return [p2];
-            return null;
+            return values[i].value;
         }
     } else {
-        if (Array.isArray(p2)) {
-            if (p2.includes(p1)) return [p1];
-            return null;
-        } else {
-            if (p1 === p2) return [p1];
-            return null;
-        }
+        return values.value;
     }
 }
 
 export default {
+    concatToPosition,
     long2Tile,
     lat2Tile,
     tile2long,
     tile2lat,
+    longLat2Tile,
     vh,
     vw,
     isValidHttpUrl,
     getTileFrame,
     rebuildQuad,
+    processTopologyQuads,
     queryGraphStore,
-    getVehicleInfo,
+    getAllOperationalPoints,
     getAllVehicleTypes,
-    getAllVehicles,
-    getMicroNodeInfo,
-    getMicroNodePorts,
+    getOPInfo,
+    getCountryInfo,
+    getOPInfoFromLocation,
+    getOPFromMicroNetElement,
+    getCoordsFromOP,
+    getCoordsFromLocation,
+    getLengthFromMicroNetElement,
+    getMicroNetElements,
+    getVehicleTypeInfo,
+    getTrackInfo,
     getAllNodePorts,
     getAllInternalNodeLinksFromNodePort,
-    getMicroNodeFromNodePort,
-    getOperationalPointFromMicroNode,
-    getNodePortInfo,
+    getOperationalPointFromMesoElement,
     isMicroLink,
     isInternalNodeLink,
     isNodePortIncoming,
-    getTrackFromMicroLink,
+    getTrackIdFromMicroNetElement,
     getMicroLinkFromNodePort,
-    checkCompatibility,
-    deepClone
+    deepClone,
+    deepLookup,
+    getPropertyDomain,
+    getLiteralInLanguage
 };

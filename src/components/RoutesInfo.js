@@ -1,9 +1,15 @@
 import React, { Component, Fragment } from "react";
 import { Panel, Steps, Loader, Button } from 'rsuite';
 import Utils from "../utils/Utils";
-import { ERA, RDFS, SKOS, WGS84 } from '../utils/NameSpaces';
-import { stepStyle, panelStyle, cellStyle } from '../styles/Styles';
-import { FACETED_BASE_URI } from '../config/config';
+import { ERA, RDFS, SKOS, WGS84, GEOSPARQL } from '../utils/NameSpaces';
+import { parse as wktParse } from 'wellknown';
+import { getPhrase } from "../utils/Languages";
+import {
+    stepStyle,
+    panelStyle,
+    tableHeaderStyle,
+    cellStyle
+} from '../styles/Styles';
 
 export class RoutesInfo extends Component {
     constructor(props) {
@@ -19,7 +25,7 @@ export class RoutesInfo extends Component {
 
     getRouteHeader = (route, index) => {
         return (
-            <span>{`Route ${index}: `}{this.getCompatibility(route)}</span>
+            <span>{`${getPhrase('route', this.props.language)} ${index} (${route.path.length / 1000} km): `}{this.getCompatibility(route)}</span>
         );
     }
 
@@ -41,10 +47,10 @@ export class RoutesInfo extends Component {
         return (
             <span>
                 <a
-                    href={`${FACETED_BASE_URI}${encodeURIComponent(op['@id'])}`}
+                    href={op['@id']}
                     target={'_blank'}
                     style={{ color: '#000' }}
-                >{`${op[RDFS.label]} (${op[ERA.opType][SKOS.prefLabel]})`}</a>
+                >{`${Utils.getLiteralInLanguage(op[RDFS.label], this.props.language)} (${Utils.getLiteralInLanguage(op[ERA.opType][SKOS.prefLabel], this.props.language)})`}</a>
                 {internal && (
                     <Button style={{ marginLeft: '5px' }} size="xs" appearance="ghost"
                         onClick={() => { this.props.toggleInternalView(true, op, route) }}>See internal connectivity</Button>
@@ -53,7 +59,15 @@ export class RoutesInfo extends Component {
         );
     }
 
-    getLabel = (s, p) => {
+    getLabel = (sub, p) => {
+        let s = null;
+
+        if (typeof sub === 'object') {
+            s = sub.value;
+        } else {
+            s = sub;
+        }
+
         if (s) {
             const l = Utils.queryGraphStore({
                 store: this.props.graphStore,
@@ -61,39 +75,69 @@ export class RoutesInfo extends Component {
             })
 
             if (l) {
-                if (Array.isArray(l[s][p])) return l[s][p][0];
-                return l[s][p];
+                return Utils.getLiteralInLanguage(l[s][p], this.props.language);
             } else {
-                return (<span style={{ color: 'red' }}>unknown term in KG</span>)
+                return (<span style={{ color: 'red' }}>{`unknown term ${p} in KG`}</span>)
             }
         }
     }
-
 
     formatValues = values => {
         if (values || values === false) {
             const res = [];
             if (Array.isArray(values)) {
-                for (const v of values) {
-                    if (Utils.isValidHttpUrl(v)) {
-                        res.push(
-                            <span key={v} style={{ float: 'left', clear: 'left' }}>
-                                - <a href={`${FACETED_BASE_URI}${encodeURIComponent(v)}`} target={'_blank'}>{this.getLabel(v, SKOS.prefLabel)}</a>
-                            </span>);
-                    } else {
-                        res.push(<span key={v}>{v}</span>);
-                    }
-                }
+                res.push((
+                    <ul key='ul'>
+                        {values.map(v => {
+                            if (Utils.isValidHttpUrl(v.value)) {
+                                return (<li key={v}><a href={v.value} target='_blank'>{this.getLabel(v, SKOS.prefLabel)}</a></li>);
+                            } else {
+                                return (<li key={v.value}>{v.value}</li>);
+                            }
+                        })}
+                    </ul>
+                ));
             } else {
-                if (Utils.isValidHttpUrl(values)) {
-                    res.push(<span key={values}><a href={`${FACETED_BASE_URI}${encodeURIComponent(values)}`} target={'_blank'}>{this.getLabel(values, SKOS.prefLabel)}</a></span>);
+                if (typeof values === 'object') {
+                    if (Utils.isValidHttpUrl(values.value)) {
+                        res.push(
+                            <div key='div' style={{ textAlign: 'center' }}>
+                                <span key={values.value}><a href={values.value} target='_blank'>{this.getLabel(values, SKOS.prefLabel)}</a></span>
+                            </div>
+                        );
+                    } else {
+                        res.push(
+                            <div key='div' style={{ textAlign: 'center' }}>
+                                <span key={values.value}>{values.value}</span>
+                            </div>
+                        );
+                    }
                 } else {
-                    res.push(<span key={values}>{values}</span>);
+                    res.push(
+                        <div key='div' style={{ textAlign: 'center' }}>
+                            <span key={values}><a href={values} target='_blank'>{this.getLabel(values, RDFS.label)}</a></span>
+                        </div>
+                    );
                 }
             }
             return res;
         } else {
-            return (<span style={{ color: 'orange' }}>no data</span>)
+            return (
+                <div key='div' style={{ textAlign: 'center' }}>
+                    <span style={{ color: 'orange' }}>no data</span>
+                </div>
+            );
+        }
+    }
+
+    getCompatibility = comp => {
+        switch (comp) {
+            case "YES":
+                return (<span style={{ color: 'green' }}>YES</span>);
+            case "NO":
+                return (<span style={{ color: 'red' }}>NO</span>);
+            case "UNKNOWN":
+                return (<span style={{ color: 'orange' }}>unkwown</span>);
         }
     }
 
@@ -102,39 +146,42 @@ export class RoutesInfo extends Component {
             return (
                 <span>
                     <span style={{ fontWeight: 'bold' }}>Track:</span>
-                    <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}> {this.getLabel(desc, RDFS.label)}</a>
+                    <a href={desc.id} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)} </a>
+                    {`(${desc.length / 1000} km)`}
                 </span>);
         } else {
             return (
                 <div>
-                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(desc)}`} target={'_blank'}> {this.getLabel(desc, RDFS.label)}</a></span><br />
-                    <span><span style={{ fontWeight: 'bold' }}>Vehicle Type:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicleType)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicleType, ERA.typeVersionNumber)}</a></span><br />
-                    <span><span style={{ fontWeight: 'bold' }}>Vehicle:</span> <a href={`${FACETED_BASE_URI}${encodeURIComponent(this.props.compatibilityVehicle)}`} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicle, ERA.vehicleNumber)}</a></span>
+                    <span><span style={{ fontWeight: 'bold' }}>Track:</span> <a href={desc.id} target={'_blank'}> {this.getLabel(desc.id, ERA.trackId)}</a></span><br />
+                    <span><span style={{ fontWeight: 'bold' }}>Vehicle Type:</span> <a href={this.props.compatibilityVehicleType} target={'_blank'}>{this.getLabel(this.props.compatibilityVehicleType, ERA.typeVersionNumber)}</a></span><br />
                     <table style={{ width: '100%', marginTop: '5px' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid black', borderTop: '1px solid black' }}>
-                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Properties</th>
-                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Compatible</th>
-                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Track</th>
-                                <th style={{ borderLeft: '1px solid black', borderRight: '1px solid black' }}>Vehicle</th>
+                            <tr style={tableHeaderStyle}>
+                                <th style={tableHeaderStyle}>Properties</th>
+                                <th style={tableHeaderStyle}>Compatible</th>
+                                <th style={tableHeaderStyle}>Track</th>
+                                <th style={tableHeaderStyle}>Vehicle</th>
                             </tr>
                         </thead>
                         <tbody>
                             {Object.keys(reps).map((rep, i) => {
-                                const unknown = (!reps[rep].values.track || !reps[rep].values.vehicle);
+                                const compatibility = reps[rep].compatible ? 'YES'
+                                    : reps[rep].compatible === false ? 'NO'
+                                        : reps[rep].values.track === ERA.notApplicable ? 'YES'
+                                            : 'UNKNOWN';
                                 return (
                                     <tr key={`rep-${i}`} style={{ borderBottom: '1px solid black' }}>
-                                        <td style={{ borderLeft: '1px solid black', borderRight: '1px solid black', textAling: 'center' }}>
-                                            {reps[rep].predicates.map((p, i) => {
-                                                return (
-                                                    <span key={i} style={{ float: 'left', clear: 'left' }}>
-                                                        — <a href={`${FACETED_BASE_URI}${encodeURIComponent(p)}`} target={'_blank'}>{this.getLabel(p, RDFS.label)}</a>
-                                                    </span>
-                                                );
-                                            })}
-                                        </td>
                                         <td style={cellStyle}>
-                                            {unknown ? (<span style={{ color: 'orange' }}>UNKNOWN</span>) : (reps[rep].compatible ? (<span style={{ color: 'green' }}>YES</span>) : (<span style={{ color: 'red' }}>NO</span>))}
+                                            <ul>
+                                                {reps[rep].predicates.map((p, i) => {
+                                                    return (
+                                                        <li key={i}><a href={p} target={'_blank'}>{this.getLabel(p, RDFS.label)}</a></li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </td>
+                                        <td style={{ ...cellStyle, textAlign: 'center' }}>
+                                            {this.getCompatibility(compatibility)}
                                         </td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.track)}</td>
                                         <td style={cellStyle}>{this.formatValues(reps[rep].values.vehicle)}</td>
@@ -148,87 +195,85 @@ export class RoutesInfo extends Component {
         }
     }
 
+    fetchMissingTiles = async nodes => {
+        await Promise.all(nodes.map(async n => {
+            if (n.lngLat) {
+                return this.props.fetchImplementationTile({ coords: n.lngLat });
+            }
+        }));
+    }
+
     async componentDidUpdate(prevProps) {
         const { routes } = this.props;
         if (JSON.stringify(prevProps.routes) !== JSON.stringify(routes)
             || prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType
-            || prevProps.compatibilityVehicle !== this.props.compatibilityVehicle) {
+            || prevProps.language !== this.props.language) {
+
             const panels = [];
+            const newVehicle = prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType;
 
-            for (const [i, r] of routes.entries()) {
-                // Get the sequence of steps of the route
-                const steps = {};
-                const tracks = [];
-                const report = [];
+            if (routes.length > 0) {
+                for (const [i, r] of routes.entries()) {
+                    if (!this.state.panels[i] || newVehicle) {
+                        // Get the sequence of steps of the new route
+                        const steps = {};
+                        const tracks = [];
+                        let report = [];
 
-                for (const np of r.path.nodes) {
-                    const mn = Utils.getMicroNodeFromNodePort(np, this.props.graphStore);
-                    let op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
+                        // Fetch all missing implementation tiles
+                        await this.fetchMissingTiles(r.path.nodes);
 
-                    if (!op) {
-                        // Implementation tile for this OP hasn't been fetched yet
-                        const npDetails = Utils.getNodePortInfo(np, this.props.graphStore);
-                        await this.props.fetchImplementationTile([
-                            parseFloat(npDetails[WGS84.long]),
-                            parseFloat(npDetails[WGS84.lat])
-                        ]);
-                        op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
-
-                        // Force tile fetch, most likely necessary due to wrong caching
-                        if (!op) {
-                            await Promise.all([
-                                this.props.fetchImplementationTile([
-                                    parseFloat(npDetails[WGS84.long]),
-                                    parseFloat(npDetails[WGS84.lat])
-                                ], true),
-                                this.props.fetchAbstractionTile({
-                                    coords: [
-                                        parseFloat(npDetails[WGS84.long]),
-                                        parseFloat(npDetails[WGS84.lat])
-                                    ], 
-                                    force: true
-                                })
-                            ]);
-                            op = Utils.getOperationalPointFromMicroNode(mn, this.props.graphStore);
+                        for (const node of r.path.nodes) {
+                            if(node.lngLat) {
+                                // NetElement belongs to an OP
+                                const op = Utils.getOPFromMicroNetElement(node.id, this.props.graphStore);
+                                if (!steps[op['@id']]) {
+                                    steps[op['@id']] = op;
+                                }
+                            } else {
+                                // NetElement belongs to a SoL
+                                tracks.push({
+                                    id: Utils.getTrackIdFromMicroNetElement(node.id, this.props.graphStore),
+                                    length: node.length
+                                });
+                            }
                         }
+
+                        // Flag that we have data to perform route compatibility
+                        if (this.props.compatibilityVehicleType || this.props.compatibilityVehicle) {
+                            report = this.props.checkCompatibility(tracks);
+                        }
+
+                        panels.push(
+                            <Panel
+                                key={`panel-${i + 1}`}
+                                style={panelStyle(r.style['line-color'])}
+                                header={this.getRouteHeader(r, i + 1)}
+                                eventKey={i}
+                                onSelect={this.onExpand}
+                                expanded={r.renderNodes}
+                                collapsible shaded>
+                                <Steps current={0} vertical style={{ stepStyle }}>
+                                    {Object.keys(steps).map((key, i) => (
+                                        <Steps.Item
+                                            key={`step-${steps[key][RDFS.label].value}`}
+                                            status={'process'}
+                                            title={this.getOperationalPointTitle(steps[key], false, r)}
+                                            description={i < Object.keys(steps).length - 1 ? this.getTrackDescription(tracks[i], report[i]) : null}>
+                                        </Steps.Item>
+                                    ))}
+                                </Steps>
+                            </Panel>
+                        );
+                    } else {
+                        // A panel was collapsed or expanded, so just change state
+                        const p = this.state.panels[i];
+                        panels.push({ ...p, props: { ...p.props, expanded: r.renderNodes } });
                     }
-
-                    if (!steps[op['@id']]) steps[op['@id']] = op;
                 }
-
-                for (const e of r.path.edges) {
-                    if (Utils.isMicroLink(e, this.props.graphStore)) {
-                        tracks.push(Utils.getTrackFromMicroLink(e, this.props.graphStore));
-                    }
-                }
-
-                // Flag that we have data to perform route compatibility
-                if (this.props.compatibilityVehicleType || this.props.compatibilityVehicle) {
-                    report = this.props.checkCompatibility(tracks);
-                }
-
-                panels.push(
-                    <Panel
-                        key={`panel-${i + 1}`}
-                        style={panelStyle(r.style['line-color'])}
-                        header={this.getRouteHeader(r, i + 1)}
-                        eventKey={i}
-                        onSelect={this.onExpand}
-                        expanded={r.renderNodes}
-                        collapsible shaded>
-                        <Steps current={0} vertical style={{ stepStyle }}>
-                            {Object.keys(steps).map((key, i) => (
-                                <Steps.Item
-                                    key={`step-${steps[key][RDFS.label]}`}
-                                    status={'process'}
-                                    title={this.getOperationalPointTitle(steps[key], i > 0 && i < Object.keys(steps).length - 1, r)}
-                                    description={i < Object.keys(steps).length - 1 ? this.getTrackDescription(tracks[i], report[i]) : null}>
-                                </Steps.Item>
-                            ))}
-                        </Steps>
-                    </Panel>
-                );
             }
+
+            // Display route info panels
             this.setState({ panels: panels });
         }
     }

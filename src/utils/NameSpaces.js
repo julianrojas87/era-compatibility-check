@@ -1,8 +1,33 @@
+export const BASE_URI = "http://data.europa.eu/949/";
+
 export const a = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+
+export const OWL = {
+    owlObjectProperty: 'http://www.w3.org/2002/07/owl#ObjectProperty',
+    owlDataTypeProperty: 'http://www.w3.org/2002/07/owl#DatatypeProperty',
+    unionOf: 'http://www.w3.org/2002/07/owl#unionOf'
+}
+
+export const RDF = {
+    first: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first',
+    rest: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',
+    nil: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil',
+    type: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+}
+
+export const XSD = {
+    boolean: "http://www.w3.org/2001/XMLSchema#boolean",
+    integer: "http://www.w3.org/2001/XMLSchema#integer",
+    string: "http://www.w3.org/2001/XMLSchema#string",
+    double: "http://www.w3.org/2001/XMLSchema#double",
+}
 
 export const RDFS = {
     label: 'http://www.w3.org/2000/01/rdf-schema#label',
-    description: 'http://www.w3.org/2000/01/rdf-schema#description'
+    description: 'http://www.w3.org/2000/01/rdf-schema#description',
+    range: 'http://www.w3.org/2000/01/rdf-schema#range',
+    comment: 'http://www.w3.org/2000/01/rdf-schema#comment',
+    domain: 'http://www.w3.org/2000/01/rdf-schema#domain'
 }
 
 export const SKOS = {
@@ -22,55 +47,72 @@ export const WGS84 = {
 }
 
 export const ERA = {
-    uopid: 'http://era.europa.eu/ns#uopid',
-    opType: 'http://era.europa.eu/ns#opType',
-    InternalNodeLink: 'http://era.europa.eu/ns#InternalNodeLink',
-    belongsToNode: 'http://era.europa.eu/ns#belongsToNode',
-    tafTapCode: 'http://era.europa.eu/ns#tafTAPCode',
-    startPort: 'http://era.europa.eu/ns#startPort',
-    endPort: 'http://era.europa.eu/ns#endPort',
-    bidirectional: 'http://era.europa.eu/ns#bidirectional',
-    hasAbstraction: 'http://era.europa.eu/ns#hasAbstraction',
-    hasImplementation: 'http://era.europa.eu/ns#hasImplementation',
-    MicroLink: 'http://era.europa.eu/ns#MicroLink',
-    VehicleType: 'http://era.europa.eu/ns#VehicleType',
-    Vehicle: 'http://era.europa.eu/ns#Vehicle',
-    trainDetectionSystem: 'http://era.europa.eu/ns#trainDetectionSystem',
-    gaugingProfile: 'http://era.europa.eu/ns#gaugingProfile',
-    axleBearingConditionMonitoring: 'http://era.europa.eu/ns#axleBearingConditionMonitoring',
-    hasHotAxleBoxDetector: 'http://era.europa.eu/ns#hasHotAxleBoxDetector',
-    railInclination: 'http://era.europa.eu/ns#railInclination',
-    wheelSetGauge: 'http://era.europa.eu/ns#wheelSetGauge',
-    minimumWheelDiameter: 'http://era.europa.eu/ns#minimumWheelDiameter',
-    minimumHorizontalRadius: 'http://era.europa.eu/ns#minimumHorizontalRadius',
-    minimumTemperature: 'http://era.europa.eu/ns#minimumTemperature',
-    maximumTemperature: 'http://era.europa.eu/ns#maximumTemperature',
-    energySupplySystem: 'http://era.europa.eu/ns#energySupplySystem',
-    maxCurrentStandstillPantograph: 'http://era.europa.eu/ns#maxCurrentStandstillPantograph',
-    minimumContactWireHeight: 'http://era.europa.eu/ns#minimumContactWireHeight',
-    maximumContactWireHeight: 'http://era.europa.eu/ns#maximumContactWireHeight',
-    contactStripMaterial: 'http://era.europa.eu/ns#contactStripMaterial',
-    typeVersionNumber: 'http://era.europa.eu/ns#typeVersionNumber',
-    vehicleSeries: 'http://era.europa.eu/ns#vehicleSeries',
-    vehicleNumber: 'http://era.europa.eu/ns#vehicleNumber',
-    vehicleType: 'http://era.europa.eu/ns#vehicleType',
-    isQuietRoute: 'http://era.europa.eu/ns#isQuietRoute',
-    operationalRestriction: 'http://era.europa.eu/ns#operationalRestriction'
+    OperationalPoint: `${BASE_URI}OperationalPoint`,
+    SectionOfLine: `${BASE_URI}SectionOfLine`,
+    NetElement: `${BASE_URI}NetElement`,
+    NetRelation: `${BASE_URI}NetRelation`,
+    rinfIndex: `${BASE_URI}rinfIndex`,
+    uopid: `${BASE_URI}uopid`,
+    opName: `${BASE_URI}opName`,
+    opStart: `${BASE_URI}opStart`,
+    opEnd: `${BASE_URI}opEnd`,
+    opType: `${BASE_URI}opType`,
+    imCode: `${BASE_URI}imCode`,
+    inCountry: `${BASE_URI}inCountry`,
+    lineReference: `${BASE_URI}lineReference`,
+    lineNationalId: `${BASE_URI}lineNationalId`,
+    tafTapCode: `${BASE_URI}tafTAPCode`,
+    hasAbstraction: `${BASE_URI}hasAbstraction`,
+    hasImplementation: `${BASE_URI}hasImplementation`,
+    VehicleType: `${BASE_URI}VehicleType`,
+    Vehicle: `${BASE_URI}Vehicle`,
+    trainDetectionSystem: `${BASE_URI}trainDetectionSystem`,
+    trainDetectionSystemType: `${BASE_URI}trainDetectionSystemType`,
+    gaugingProfile: `${BASE_URI}gaugingProfile`,
+    axleBearingConditionMonitoring: `${BASE_URI}axleBearingConditionMonitoring`,
+    hasHotAxleBoxDetector: `${BASE_URI}hasHotAxleBoxDetector`,
+    railInclination: `${BASE_URI}railInclination`,
+    wheelSetGauge: `${BASE_URI}wheelSetGauge`,
+    minimumWheelDiameter: `${BASE_URI}minimumWheelDiameter`,
+    minimumHorizontalRadius: `${BASE_URI}minimumHorizontalRadius`,
+    minimumTemperature: `${BASE_URI}minimumTemperature`,
+    maximumTemperature: `${BASE_URI}maximumTemperature`,
+    contactLineSystem: `${BASE_URI}contactLineSystem`,
+    energySupplySystem: `${BASE_URI}energySupplySystem`,
+    maxCurrentStandstillPantograph: `${BASE_URI}maxCurrentStandstillPantograph`,
+    minimumContactWireHeight: `${BASE_URI}minimumContactWireHeight`,
+    maximumContactWireHeight: `${BASE_URI}maximumContactWireHeight`,
+    contactStripMaterial: `${BASE_URI}contactStripMaterial`,
+    typeVersionNumber: `${BASE_URI}typeVersionNumber`,
+    vehicleSeries: `${BASE_URI}vehicleSeries`,
+    vehicleNumber: `${BASE_URI}vehicleNumber`,
+    vehicleType: `${BASE_URI}vehicleType`,
+    isQuietRoute: `${BASE_URI}isQuietRoute`,
+    operationalRestriction: `${BASE_URI}operationalRestriction`,
+    autorisedCountry: `${BASE_URI}authorizedCountry`,
+    tenClassification: `${BASE_URI}tenClassification`,
+    elementA: `${BASE_URI}elementA`,
+    elementB: `${BASE_URI}elementB`,
+    elementPart: `${BASE_URI}elementPart`,
+    navigability: `${BASE_URI}navigability`,
+    length: `${BASE_URI}length`,
+    trackId: `${BASE_URI}trackId`,
+    notApplicable: `${BASE_URI}notApplicable`,
+    notYetAvailable: `${BASE_URI}notYetAvailable`,
+    solNature: `${BASE_URI}solNature`,
+    track: `${BASE_URI}track`,
+    linkedTo: `${BASE_URI}linkedTo`,
+    partOf: `${BASE_URI}partOf`
 }
 
-export const OP_TYPES = {
-    station: 'http://era.europa.eu/concepts/op-types#station',
-    smallStation: 'http://era.europa.eu/concepts/op-types#smallStation',
-    passengerTerminal: 'http://era.europa.eu/concepts/op-types#passengerTerminal',
-    freightTerminal: 'http://era.europa.eu/concepts/op-types#freightTerminal',
-    depotOrWorkshop: 'http://era.europa.eu/concepts/op-types#depotOrWorkshop',
-    trainTechnicalServices: 'http://era.europa.eu/concepts/op-types#trainTechnicalServices',
-    passengerStop: 'http://era.europa.eu/concepts/op-types#passengerStop',
-    junction: 'http://era.europa.eu/concepts/op-types#junction',
-    borderPoint: 'http://era.europa.eu/concepts/op-types#borderPoint',
-    shuntungYard: 'http://era.europa.eu/concepts/op-types#shuntungYard',
-    technicalChange: 'http://era.europa.eu/concepts/op-types#technicalChange',
-    switch: 'http://era.europa.eu/concepts/op-types#switch',
-    privateSiding: 'http://era.europa.eu/concepts/op-types#privateSiding',
-    domesticBorderPoint: 'http://era.europa.eu/concepts/op-types#domesticBorderPoint'
+export const NAVIGS = {
+    AB: `${BASE_URI}concepts/navigabilities/AB`,
+    BA: `${BASE_URI}concepts/navigabilities/BA`,
+    Both: `${BASE_URI}concepts/navigabilities/Both`,
+    None: `${BASE_URI}concepts/navigabilities/None`
+}
+
+export const URI_LENGTH = {
+    nationalLine: `${BASE_URI}functionalInfrastructure/nationalLines/`.length,
+    operationalPoint: `${BASE_URI}functionalInfrastructure/operationalPoints/`.length,
 }

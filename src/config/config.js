@@ -1,15 +1,21 @@
 
-const ERA_GEO_API = '${ERA_GEO_API}';
+const BASE_URI = '${BASE_URI}';
+//const BASE_URI = 'http://era.ilabt.imec.be'; // on imec premises
+//const BASE_URI = 'https://data-interop.era.europa.eu'; // on DIGIT premises
 const ZOOM = '${ZOOM}';
-export const FACETED_BASE_URI = '${FACETED_BASE_URI}'
-//export const FACETED_BASE_URI = 'https://linked.ec-dataplatform.eu/describe/?url='; for Virtuoso
-//export const FACETED_BASE_URI = 'http://era.ilabt.imec.be/resource?uri='; for GraphDB
+//const ZOOM = '10';
 
+/**
+ * Constants used within the app
+ * */ 
 export const APP_PATH = '/compatibility-check-demo';
-export const ERA_VOCABULARY = ERA_GEO_API + '/vocabulary';
-export const ERA_VEHICLE_TYPES = ERA_GEO_API + '/vehicle-types';
-export const ERA_VEHICLES = ERA_GEO_API + '/vehicles';
-export const ABSTRACTION_TILES = ERA_GEO_API + '/sparql-tiles/abstraction';
-export const IMPLEMENTATION_TILES = ERA_GEO_API + '/sparql-tiles/implementation';
+export const SEARCH_QUERY_API = BASE_URI + '/ldf/search'
+export const COUNT_QUERY_API = BASE_URI + '/ldf/count'
+export const ERA_OPERATIONAL_POINTS = BASE_URI + '/ldf/operational-points';
+export const ERA_VEHICLE_TYPES = BASE_URI + '/ldf/vehicle-types';
+export const ABSTRACTION_TILES = BASE_URI + '/ldf/sparql-tiles/abstraction';
+export const IMPLEMENTATION_TILES = BASE_URI + '/ldf/sparql-tiles/implementation';
 export const ABSTRACTION_ZOOM = ZOOM;
 export const IMPLEMENTATION_ZOOM = ZOOM;
+export const ERA_ONTOLOGY = BASE_URI + '/era-vocabulary/ontology.ttl';
+export const ERA_TYPES = BASE_URI + '/era-vocabulary/era-skos'
