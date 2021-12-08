@@ -16,8 +16,7 @@ export class RoutesLayer extends Component {
 
     parseRoute = route => {
         let linePath = [];
-
-        for (const stop of route.path.nodes) {
+        for (const stop of route.path) {
             if(stop.lngLat) {
                 linePath.push(stop.lngLat);
                 if (route.renderNodes) {

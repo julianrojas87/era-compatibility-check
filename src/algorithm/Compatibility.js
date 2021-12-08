@@ -5,9 +5,15 @@ function getTrackPropertyValue(t, params) {
     const value = Utils.deepLookup(t, params);
     // Check track applicability
     if (!value) {
-        if (t[ERA.notApplicable]?.findIndex(na => na.value === params[params.length - 1]) >= 0) {
+        const notApplicable = t[ERA.notApplicable]? Array.isArray(t[ERA.notApplicable])? 
+            t[ERA.notApplicable] : [t[ERA.notApplicable]] : [];
+
+        const notYetAvailable = t[ERA.notYetAvailable]? Array.isArray(t[ERA.notYetAvailable])? 
+            t[ERA.notYetAvailable] : [t[ERA.notYetAvailable]] : [];
+
+        if (notApplicable.findIndex(na => na.value === params[params.length - 1]) >= 0) {
             return ERA.notApplicable;
-        } else if (t[ERA.notYetAvailable]?.findIndex(nya => nya.value === params[params.length - 1]) >= 0) {
+        } else if (notYetAvailable.findIndex(nya => nya.value === params[params.length - 1]) >= 0) {
             return ERA.notYetAvailable;
         } else {
             return null;

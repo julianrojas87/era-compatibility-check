@@ -1,8 +1,8 @@
 import React, { Component, Fragment } from "react";
 import { Panel, Steps, Loader, Button } from 'rsuite';
 import Utils from "../utils/Utils";
-import { ERA, RDFS, SKOS, WGS84, GEOSPARQL } from '../utils/NameSpaces';
-import { parse as wktParse } from 'wellknown';
+import RouteRenderer from "../workers/RouteRenderer.worker";
+import { ERA, RDFS, SKOS } from '../utils/NameSpaces';
 import { getPhrase } from "../utils/Languages";
 import {
     stepStyle,
@@ -15,8 +15,11 @@ export class RoutesInfo extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            panels: []
+            panels: [],
+            routeStructures: []
         };
+        // Cache of fetched OP for route structures
+        this.opCache = new Map();
     }
 
     onExpand = e => {
@@ -25,7 +28,7 @@ export class RoutesInfo extends Component {
 
     getRouteHeader = (route, index) => {
         return (
-            <span>{`${getPhrase('route', this.props.language)} ${index} (${route.path.length / 1000} km): `}{this.getCompatibility(route)}</span>
+            <span>{`${getPhrase('route', this.props.language)} ${index} (${route.length / 1000} km): `}{this.getCompatibility(route)}</span>
         );
     }
 
@@ -44,13 +47,19 @@ export class RoutesInfo extends Component {
     }
 
     getOperationalPointTitle = (op, internal, route) => {
+        // Get OP Type info
+        if (op[ERA.opType].value) {
+            op[ERA.opType] = Utils.queryGraphStore({
+                s: op[ERA.opType],
+                store: this.props.graphStore
+            })[op[ERA.opType].value];
+        }
+
         return (
             <span>
-                <a
-                    href={op['@id']}
-                    target={'_blank'}
-                    style={{ color: '#000' }}
-                >{`${Utils.getLiteralInLanguage(op[RDFS.label], this.props.language)} (${Utils.getLiteralInLanguage(op[ERA.opType][SKOS.prefLabel], this.props.language)})`}</a>
+                <a href={op['@id']} target={'_blank'} style={{ color: '#000' }}>
+                    {`${Utils.getLiteralInLanguage(op[RDFS.label], this.props.language)} (${Utils.getLiteralInLanguage(op[ERA.opType][SKOS.prefLabel], this.props.language)})`}
+                </a>
                 {internal && (
                     <Button style={{ marginLeft: '5px' }} size="xs" appearance="ghost"
                         onClick={() => { this.props.toggleInternalView(true, op, route) }}>See internal connectivity</Button>
@@ -195,54 +204,93 @@ export class RoutesInfo extends Component {
         }
     }
 
-    fetchMissingTiles = async nodes => {
-        await Promise.all(nodes.map(async n => {
+    complementRoute = nodes => {
+        const toFetch = new Set();
+
+        for (const n of nodes) {
             if (n.lngLat) {
-                return this.props.fetchImplementationTile({ coords: n.lngLat });
+                n.opId = Utils.getOPIdFromCoords(n.lngLat, this.props.graphStore);
+                if (!this.opCache.has(n.opId)) toFetch.add(n.opId);
+            } else {
+                n.trackId = Utils.getTrackIdFromMicroNetElement(n.id, this.props.graphStore);
             }
-        }));
+        }
+
+        return Array.from(toFetch);
+    }
+
+    updateCaches = async (opCache, locations, quads) => {
+        this.opCache = opCache;
+        this.props.updateOPLocations(locations);
+        this.props.graphStore.addAll(quads.map(Utils.rebuildQuad));
+    }
+
+    assembleRoute = (route, fromLoc, toLoc) => {
+        return new Promise((resolve, reject) => {
+            const renderer = new RouteRenderer();
+            renderer.addEventListener('message', e => {
+                const {
+                    steps, tracks, length,
+                    opCache, locations, quads
+                } = e.data;
+
+                this.updateCaches(opCache, locations, quads);
+                resolve({ steps, tracks, length });
+            });
+
+            // Add route element relevant IDs
+            const toFetch = this.complementRoute(route.path);
+
+            renderer.postMessage({
+                route,
+                fromLoc,
+                toLoc,
+                toFetch,
+                opCache: this.opCache
+            });
+        });
     }
 
     async componentDidUpdate(prevProps) {
         const { routes } = this.props;
-        if (JSON.stringify(prevProps.routes) !== JSON.stringify(routes)
-            || prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType
-            || prevProps.language !== this.props.language) {
+        const newRoutes = JSON.stringify(prevProps.routes) !== JSON.stringify(routes);
+        const newVehicle = prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType;
+        const newLanguage = prevProps.language !== this.props.language
 
+        if (newRoutes || newVehicle || newLanguage) {
             const panels = [];
-            const newVehicle = prevProps.compatibilityVehicleType !== this.props.compatibilityVehicleType;
+            let routeStructures = [];
 
             if (routes.length > 0) {
+                await this.props.setLoaderMessage(getPhrase('fetchingData', this.props.language));
+                const fromLoc = this.props.from.lngLat;
+                const toLoc = this.props.to.lngLat;
+
                 for (const [i, r] of routes.entries()) {
                     if (!this.state.panels[i] || newVehicle) {
-                        // Get the sequence of steps of the new route
-                        const steps = {};
-                        const tracks = [];
-                        let report = [];
+                        let routeStructure = null;
 
-                        // Fetch all missing implementation tiles
-                        await this.fetchMissingTiles(r.path.nodes);
-
-                        for (const node of r.path.nodes) {
-                            if(node.lngLat) {
-                                // NetElement belongs to an OP
-                                const op = Utils.getOPFromMicroNetElement(node.id, this.props.graphStore);
-                                if (!steps[op['@id']]) {
-                                    steps[op['@id']] = op;
-                                }
-                            } else {
-                                // NetElement belongs to a SoL
-                                tracks.push({
-                                    id: Utils.getTrackIdFromMicroNetElement(node.id, this.props.graphStore),
-                                    length: node.length
-                                });
-                            }
+                        let t0 = new Date();
+                        if (!this.state.routeStructures[i]) {
+                            // Build route structure for the first time
+                            routeStructure = await this.assembleRoute(r, fromLoc, toLoc);
+                        } else {
+                            routeStructure = this.state.routeStructures[i];
                         }
+                        console.log('Creating route UI structure took', new Date() - t0, 'ms');
 
-                        // Flag that we have data to perform route compatibility
-                        if (this.props.compatibilityVehicleType || this.props.compatibilityVehicle) {
+                        routeStructures.push(routeStructure);
+                        const { steps, tracks, length } = routeStructure;
+                        let report = [];
+                        // Register path length
+                        r.length = length;
+
+                        // Perform route compatibility if a vehicle type has been selected
+                        t0 = new Date();
+                        if (this.props.compatibilityVehicleType) {
                             report = this.props.checkCompatibility(tracks);
                         }
+                        console.log('Compatibility report took', new Date() - t0, 'ms');
 
                         panels.push(
                             <Panel
@@ -269,12 +317,14 @@ export class RoutesInfo extends Component {
                         // A panel was collapsed or expanded, so just change state
                         const p = this.state.panels[i];
                         panels.push({ ...p, props: { ...p.props, expanded: r.renderNodes } });
+                        routeStructures = this.state.routeStructures;
                     }
                 }
             }
 
             // Display route info panels
-            this.setState({ panels: panels });
+            this.setState({ panels, routeStructures });
+            await this.props.setLoaderMessage(null);
         }
     }
 

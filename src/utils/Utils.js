@@ -132,7 +132,9 @@ function queryGraphStore(params) {
 
     // Handle Object being a NamedNode, Literal or BlankNode
     if (params.o) {
-        obj = /(https?):\/\//.test(params.o) ? namedNode(params.o) : params.o.startsWith('n3-') ? blankNode(params.o) : literal(params.o);
+        obj = /(https?):\/\//.test(params.o) ? namedNode(params.o) 
+            : params.o.startsWith('n3-') ? blankNode(params.o) 
+                : literal(params.o);
     }
 
     // Execute query
@@ -331,6 +333,19 @@ function getOPInfoFromLocation(geometry, lngLat, graphStore) {
     }
 }
 
+function getOPIdFromCoords(lngLat, graphStore) {
+    // TODO: Fix this and adjust to a proper way to retrieve the related OP URI
+    // Query for OP ID
+    const locId = queryGraphStore({
+        store: graphStore,
+        p: WGS84.location,
+        o: `http://data.europa.eu/949/locations/${lngLat[0]}/${lngLat[1]}`
+    });
+
+    return Object.keys(locId)[0];
+
+}
+
 function getOperationalPointFromMesoElement(me, store) {
     // Get the Operational Point ID
     const op = queryGraphStore({
@@ -351,9 +366,13 @@ function getOperationalPointFromMesoElement(me, store) {
 function getOPFromMicroNetElement(mne, store) {
     // Get associated meso NetElement
     const ne = queryGraphStore({ store, p: ERA.elementPart, o: mne });
-    const mesoNeId = Object.keys(ne)[0];
-    // Get associated OP if any
-    return getOperationalPointFromMesoElement(mesoNeId, store);
+    if (ne) {
+        const mesoNeId = Object.keys(ne)[0];
+        // Get associated OP if any
+        return getOperationalPointFromMesoElement(mesoNeId, store);
+    } else {
+        return null;
+    }
 }
 
 function getTrackIdFromMicroNetElement(mne, store) {
@@ -634,6 +653,7 @@ export default {
     getOPInfo,
     getCountryInfo,
     getOPInfoFromLocation,
+    getOPIdFromCoords,
     getOPFromMicroNetElement,
     getCoordsFromOP,
     getCoordsFromLocation,

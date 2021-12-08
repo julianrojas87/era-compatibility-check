@@ -7,7 +7,11 @@ self.addEventListener('message', async e => {
     // const t0 = new Date()
     // console.log(`Fetching RDF resource ${e.data.url}`)
 
-    const res = await fetch(e.data.url, { headers: e.data.headers || [] });
+    const res = await fetch(e.data.url, {
+        method: e.data.method || 'GET',
+        headers: e.data.headers || [],
+        body: e.data.body ? JSON.stringify(e.data.body) : null
+    });
 
     if (res.ok) {
         const contentType = res.headers.get('Content-Type');

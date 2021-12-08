@@ -15,12 +15,12 @@ import { HelpPage } from './HelpPage';
 import RDFetch from '../workers/RDFetch.worker';
 import { TileFetcherWorkerPool } from '../workers/TileFetcherWorkerPool';
 import { NetworkGraph } from '../algorithm/NetworkGraph';
-import PFWorker from '../workers/PathFinder.worker';
-import { findIntersectedTiles } from '../algorithm/VoxTraversal';
+//import PFWorker from '../workers/PathFinder.worker';
+//import { findIntersectedTiles } from '../algorithm/VoxTraversal';
 import { verifyCompatibility } from '../algorithm/Compatibility';
 import Utils from '../utils/Utils';
 import loadingGifPath from '../img/loading.gif';
-import { GEOSPARQL, RDFS, ERA } from '../utils/NameSpaces';
+import { GEOSPARQL, RDFS } from '../utils/NameSpaces';
 import { getPhrase } from "../utils/Languages";
 import {
     Container,
@@ -52,6 +52,7 @@ import {
     ERA_VEHICLE_TYPES,
     IMPLEMENTATION_TILES,
     ABSTRACTION_TILES,
+    OSRM_API,
     IMPLEMENTATION_ZOOM,
     ABSTRACTION_ZOOM
 } from '../config/config';
@@ -250,9 +251,11 @@ class MainLayout extends Component {
             );
 
             if (tileFetcher) {
+                let setLoader = false;
                 // Show loading gifs
                 this.toggleLoading(true);
-                if (!this.state.calculatingRoutes) {
+                if (!this.state.calculatingRoute && !this.state.loaderMessage) {
+                    setLoader = true;
                     this.setLoaderMessage(getPhrase('fetchingData', this.state.language));
                 }
 
@@ -284,7 +287,7 @@ class MainLayout extends Component {
                     if (this.tileFetcherPool.allWorkersFree()) {
                         // Hide loading gifs
                         this.toggleLoading(false);
-                        if (!this.state.calculatingRoutes) {
+                        if (!this.state.calculatingRoutes && setLoader) {
                             this.setLoaderMessage(null);
                         }
                     }
@@ -378,6 +381,13 @@ class MainLayout extends Component {
         this.setState(() => { return { displayOPs: obj } });
     }
 
+    updateOPLocations = locs => {
+        locs.forEach(l => {
+            this.allOPLocations[l[0]] = l[1];
+        });
+        this.renderOperationalPoints();
+    }
+
     updateRouteFilter = filter => {
         this.setState({ routeFilter: filter }, () => {
             this.renderOperationalPoints();
@@ -446,7 +456,7 @@ class MainLayout extends Component {
         // Start building network graph.
         await Promise.all([
             this.fetchImplementationTile({ coords: lngLat }),
-            this.fetchAbstractionTile({ coords: lngLat })
+            //this.fetchAbstractionTile({ coords: lngLat })
         ]);
 
         if (type === 'from') {
@@ -485,9 +495,7 @@ class MainLayout extends Component {
         if (this.state.loading) return false;
 
         // Get reachable micro NetElements of FROM Operational Point
-        const fromMicroNEs = Utils.getMicroNetElements(this.state.from, this.graphStore)
-            .filter(ne => this.networkGraph.nodes.has(ne.value))
-            .map(ne => ne.value);
+        const fromMicroNEs = Utils.getMicroNetElements(this.state.from, this.graphStore);
         const fromOp = Utils.getOPInfo(this.state.from, this.graphStore);
 
         if (fromMicroNEs.length === 0) {
@@ -499,14 +507,11 @@ class MainLayout extends Component {
         }
 
         // Get geolocation of FROM OP
-        this.from.microNEs = fromMicroNEs;
         this.from.lngLat = Utils.getCoordsFromOP(this.state.from, this.graphStore);
-        this.from.length = 0
+        this.from.microNEs = fromMicroNEs;
 
         // Get reachable micro NetElements of TO Operational Point
-        const toMicroNEs = Utils.getMicroNetElements(this.state.to, this.graphStore)
-            .filter(ne => this.networkGraph.nodes.has(ne.value))
-            .map(ne => ne.value);
+        const toMicroNEs = Utils.getMicroNetElements(this.state.to, this.graphStore);
         const toOp = Utils.getOPInfo(this.state.to, this.graphStore);
 
         if (toMicroNEs.length === 0) {
@@ -518,8 +523,8 @@ class MainLayout extends Component {
         }
 
         // Get geolocation of TO OP
-        this.to.microNEs = toMicroNEs;
         this.to.lngLat = Utils.getCoordsFromOP(this.state.to, this.graphStore);
+        this.to.microNEs = toMicroNEs;
 
         // Handle case where FROM and TO are the same
         if (this.state.from === this.state.to) {
@@ -536,68 +541,33 @@ class MainLayout extends Component {
             this.to.lngLat.join('_')
         ]));
 
-        // Gather all the tiles intersected by the straight line between origin and destination
-        const intersectedTiles = findIntersectedTiles(this.from.lngLat, this.to.lngLat);
-        if (intersectedTiles.length < 40) {
-            await Promise.all(intersectedTiles.map(tile => {
-                return this.fetchAbstractionTile({ coords: tile, asXY: true })
-            }));
-        }
-
-        // Setup path finder worker object
-        this.pathFinder = new PFWorker();
         const t0 = new Date();
 
-        // Message handler for Web Worker messages
-        this.pathFinder.addEventListener('message', e => {
-            if (e.data.paths) {
-                console.log('Route planning query took: ', new Date() - t0, 'ms');
-                // Rebuild Network Graph to keep the data fetched during the route calculation
-                this.networkGraph = new NetworkGraph();
-                this.networkGraph.nodes = e.data.topologyNodes;
-                // Update tile cache
-                this.tileFetcherPool.cache = e.data.tileCache;
+        // Call OSRM API
+        const osrmURL = `${OSRM_API}?from=${this.from.lngLat.join(',')}&to=${this.to.lngLat.join(',')}`;
+        const res = await fetch(osrmURL);
 
-                if (e.data.paths.length > 0) {
-                    // Report found routes
-                    this.setState({
-                        routes: e.data.paths.map(path => {
-                            return {
-                                path,
-                                renderNodes: false,
-                                style: randomRouteStyle()
-                            }
-                        })
-                    });
-                } else {
-                    // There are no routes between the given OPs
-                    Alert.warning('There are no possible routes between these two locations', 10000);
-                }
-
-                // Route planner finished, remove tiles and loading data signals
-                this.setState({ showTileFrames: false });
-                this.setLoaderMessage(null);
-                this.toggleRouteCalculation(false);
-                // Kill worker
-                this.pathFinder.terminate();
-                this.pathFinder = null;
+        res.json().then(route => {
+            if (route && route.length > 0) {
+                console.log('Route calculated in', new Date() - t0, 'ms');
+                // Report found route
+                this.setState({
+                    routes: [{
+                        path: route,
+                        renderNodes: false,
+                        style: randomRouteStyle()
+                    }]
+                });
             } else {
-                // A tile was fetched, draw it on the map
-                this.drawTileFrame(e.data.coords, ABSTRACTION_ZOOM);
+                // There are no routes between the given OPs
+                Alert.warning('There are no possible routes between these two locations', 10000);
             }
+
+            // Route planner finished, remove tiles and loading data signals
+            this.setState({ showTileFrames: false });
+            this.toggleRouteCalculation(false);
         });
 
-        // Kick-off route calculation process
-        this.pathFinder.postMessage({
-            from: this.from,
-            to: this.to,
-            K: this.state.maxRoutes,
-            topologyNodes: this.networkGraph.nodes,
-            tileCache: this.tileFetcherPool.cache,
-            tilesBaseURI: ABSTRACTION_TILES,
-            zoom: ABSTRACTION_ZOOM,
-            debug: false
-        });
         // Start loading animations
         this.toggleRouteCalculation(true);
         this.setLoaderMessage(getPhrase('calculatingRoutes', this.state.language));
@@ -616,7 +586,7 @@ class MainLayout extends Component {
         this.setState({ calculatingRoutes: flag });
     }
 
-    setLoaderMessage = m => {
+    setLoaderMessage = (m) => {
         return new Promise(resolve => {
             this.setState({ loaderMessage: m }, () => { resolve() });
         });
@@ -831,13 +801,16 @@ class MainLayout extends Component {
                         </div>
 
                         <RoutesInfo
+                            from={this.from}
+                            to={this.to}
                             routes={routes}
                             graphStore={this.graphStore}
                             routeExpansionHandler={this.routeExpansionHandler}
-                            fetchImplementationTile={this.fetchImplementationTile}
+                            updateOPLocations={this.updateOPLocations}
                             compatibilityVehicleType={compatibilityVehicleType}
                             checkCompatibility={this.checkCompatibility}
-                            toggleInternalView={this.toggleInternalView}
+                            setLoaderMessage={this.setLoaderMessage}
+                            //toggleInternalView={this.toggleInternalView}
                             language={language}>
                         </RoutesInfo>
 
